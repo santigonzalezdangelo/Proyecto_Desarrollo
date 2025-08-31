@@ -8,4 +8,5 @@ TEMAS A DESARROLLAR
 - Autenticacion con auth0
     Tutorial: https://youtu.be/sTJaHQINpTc?si=id4XVstJrzwy6Wat
 - Integrar Chatbox
-    Link: https://dialogflow.cloud.google.com/#/agent/alojaresponde-vtth/editIntent/035b6a88-7b04-47d8-85dd-b262294d2c9f/ 
+    Link: https://dialogflow.cloud.google.com/#/agent/alojaresponde-vtth/editIntent/035b6a88-7b04-47d8-85dd-b262294d2c9f/
+- Pasar login a react
