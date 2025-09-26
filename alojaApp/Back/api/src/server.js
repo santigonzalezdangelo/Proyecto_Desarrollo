@@ -102,6 +102,40 @@ app.post("/usuarios", async (req, res) => {
   }
 });
 
+app.post("/reservas", async (req, res) => {
+  const { id_usuario, id_propiedad, fecha_inicio, fecha_fin, cantidad_de_dias, precio_final, id_comision } = req.body;
+
+  console.log("Body recibido:", req.body);
+  // Validaciones básicas
+  if (!id_usuario || !id_propiedad || !fecha_inicio || !fecha_fin || !cantidad_de_dias || !precio_final || !id_comision ) {
+    return res.status(400).json({ error: "Faltan datos obligatorios" });
+  }
+
+    try {
+    // Empezamos transaction
+    await pool.query("BEGIN");
+
+    const reservaResult = await pool.query(
+      `INSERT INTO reserva (id_usuario, id_propiedad, fecha_inicio, fecha_fin, cantidad_de_dias, precio_final, id_comision)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id_reserva`,
+      [id_usuario, id_propiedad, fecha_inicio, fecha_fin, cantidad_de_dias, precio_final, id_comision]
+    );
+
+    await pool.query("COMMIT");
+
+    // No devolvemos la contraseña (ni siquiera la hasheada)
+    res.status(201).json({
+      message: "Reserva registrada con éxito",
+      reserva: reservaResult.rows[0],
+    });
+  } catch (error) {
+    await pool.query("ROLLBACK");
+
+    console.error("Error en POST /reservas:", error);
+    res.status(500).json({ error: "Error al registrar reserva" });
+  }
+});
 
 
 const PORT = process.env.PORT || 4000;
