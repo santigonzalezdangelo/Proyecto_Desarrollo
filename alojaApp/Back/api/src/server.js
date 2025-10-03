@@ -137,6 +137,137 @@ app.post("/reservas", async (req, res) => {
   }
 });
 
+app.put("/propiedades/:id", async (req, res) => {
+    const id = req.params.id; // id_propiedad
+    const { precio_por_noche } = req.body; // nuevo precio
+
+    if (precio_por_noche === undefined) {
+        return res.status(400).json({ error: "Debe enviar el precio_por_noche" });
+    }
+
+    try {
+        const result = await pool.query(
+            `UPDATE propiedad
+             SET precio_por_noche = $1
+             WHERE id_propiedad = $2
+             RETURNING *`,
+            [precio_por_noche, id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: "Propiedad no encontrada" });
+        }
+
+        res.json({
+            message: "Precio actualizado correctamente",
+            propiedad: result.rows[0]
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Error al actualizar el precio" });
+    }
+});
+
+app.get("/precio", async (req, res) => {
+  try {
+    const { id_propiedad, fecha_inicio, fecha_fin } = req.query;
+
+    // Validar que vengan los parámetros
+    if (!id_propiedad || !fecha_inicio || !fecha_fin) {
+      return res.status(400).json({ error: "Faltan parámetros obligatorios" });
+    }
+
+    // Calcular diferencia de días
+    const inicio = new Date(fecha_inicio);
+    const fin = new Date(fecha_fin);
+
+    if (isNaN(inicio) || isNaN(fin) || fin <= inicio) {
+      return res.status(400).json({ error: "Fechas inválidas" });
+    }
+
+    const diffTime = Math.abs(fin - inicio); // milisegundos
+    const dias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Obtener precio de la propiedad desde la BD
+    const result = await pool.query(
+      `SELECT precio_por_noche FROM propiedad WHERE id_propiedad = $1`,
+      [id_propiedad]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Propiedad no encontrada" });
+    }
+
+    const precioPorNoche = result.rows[0].precio_por_noche;
+
+    // Calcular precio total
+    const precioTotal = dias * precioPorNoche;
+
+    res.json({
+      id_propiedad,
+      fecha_inicio,
+      fecha_fin,
+      dias,
+      precio_por_noche: precioPorNoche,
+      precio_total: precioTotal,
+    });
+  } catch (error) {
+    console.error("Error en GET /precio:", error);
+    res.status(500).json({ error: "Error al calcular precio" });
+  }
+});
+
+
+app.get("/propiedades/disponibles", async (req, res) => {
+  try {
+    const { fecha_inicio, fecha_fin, huespedes, id_localidad, precio_max } = req.query;
+
+    // Validación básica
+    if (!fecha_inicio || !fecha_fin || !huespedes || !id_localidad) {
+      return res.status(400).json({
+        error: "Faltan parámetros obligatorios",
+        missing: [
+          !fecha_inicio ? "fecha_inicio" : null,
+          !fecha_fin ? "fecha_fin" : null,
+          !huespedes ? "huespedes" : null,
+          !id_localidad ? "id_localidad" : null,
+        ].filter(Boolean),
+        received: req.query,
+      });
+    }
+
+    // Construcción dinámica del query
+    let query = `
+      SELECT p.*
+      FROM propiedad p
+      WHERE p.cantidad_huespedes >= $1
+        AND p.id_localidad = $2
+        AND NOT EXISTS (
+          SELECT 1
+          FROM reserva r
+          WHERE r.id_propiedad = p.id_propiedad
+            AND r.fecha_inicio < $4
+            AND r.fecha_fin > $3
+        )
+    `;
+
+    const params = [huespedes, id_localidad, fecha_inicio, fecha_fin];
+
+    if (precio_max) {
+      query += " AND p.precio_por_noche <= $5";
+      params.push(precio_max);
+    }
+
+    const { rows } = await pool.query(query, params);
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Error en GET /propiedades/disponibles:", err);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
