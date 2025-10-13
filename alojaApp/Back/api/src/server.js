@@ -61,7 +61,7 @@ app.post("/usuarios", async (req, res) => {
       return res.status(409).json({ error: "Ya existe un usuario con ese correo" });
     }
 
-    // 2) Insertar en persona
+    // 2) Insertar en personaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     const personaResult = await pool.query(
       `INSERT INTO persona (nombre, apellido, dni, calle, numero, id_localidad)
        VALUES ($1, $2, $3, $4, $5, $6)
