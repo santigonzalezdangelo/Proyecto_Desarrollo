@@ -267,6 +267,96 @@ app.get("/propiedades/disponibles", async (req, res) => {
   }
 });
 
+//PRUEBAS
+app.get("/propiedades/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // --- Consulta principal de propiedad + anfitrión + ubicación + tipo ---
+    const propiedadResult = await pool.query(
+      `
+      SELECT 
+        p.id_propiedad,
+        p.nombre_de_fantasia,
+        p.descripcion,
+        p.precio_por_noche,
+        p.senia_minima,
+        p.cantidad_huespedes,
+        tp.nombre_tipo AS tipo,
+        l.nombre_localidad AS localidad,
+        c.nombre_ciudad AS ciudad,
+        pa.nombre_pais AS pais,
+        pe.nombre AS nombre_anfitrion,
+        pe.apellido AS apellido_anfitrion,
+        u.correo AS correo_anfitrion
+      FROM propiedad p
+      JOIN tipopropiedad tp ON p.id_tipo_propiedad = tp.id_tipo_propiedad
+      JOIN localidad l ON p.id_localidad = l.id_localidad
+      JOIN ciudad c ON l.id_ciudad = c.id_ciudad
+      JOIN pais pa ON c.id_pais = pa.id_pais
+      JOIN anfitrion a ON p.id_anfitrion = a.id_usuario
+      JOIN usuario u ON a.id_usuario = u.id_usuario
+      JOIN persona pe ON u.id_persona = pe.id_persona
+      WHERE p.id_propiedad = $1
+      `,
+      [id]
+    );
+
+    if (propiedadResult.rows.length === 0)
+      return res.status(404).json({ error: "Propiedad no encontrada" });
+
+    const propiedad = propiedadResult.rows[0];
+
+    // --- Traer fotos de la propiedad ---
+    const fotosResult = await pool.query(
+      "SELECT id_url, nombre FROM foto WHERE id_propiedad = $1",
+      [id]
+    );
+
+    // --- Calcular calificación promedio y cantidad ---
+    const calificacionResult = await pool.query(
+      `
+      SELECT 
+        COALESCE(ROUND(AVG(puntuacion),2),0) AS promedio,
+        COUNT(*) AS total
+      FROM calificacionpropiedad
+      WHERE id_propiedad = $1
+      `,
+      [id]
+    );
+
+    const calificaciones = calificacionResult.rows[0];
+
+    // --- Construir respuesta final ---
+    const respuesta = {
+      ...propiedad,
+      anfitrion: {
+        nombre: propiedad.nombre_anfitrion,
+        apellido: propiedad.apellido_anfitrion,
+        correo: propiedad.correo_anfitrion,
+      },
+      fotos: fotosResult.rows,
+      calificaciones,
+    };
+
+    // Eliminar duplicados de nivel raíz
+    delete respuesta.nombre_anfitrion;
+    delete respuesta.apellido_anfitrion;
+    delete respuesta.correo_anfitrion;
+
+    res.json(respuesta);
+  } catch (err) {
+    console.error("Error al obtener propiedad:", err);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+
+
+
+
+
+
 
 
 const PORT = process.env.PORT || 4000;
