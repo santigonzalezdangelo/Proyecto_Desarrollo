@@ -1,0 +1,59 @@
+:root {
+  --primary: #EABA4B;
+  --bg: #0b1020;
+  --text: #1e293b;
+}
+
+.home {
+  font-family: Arial, sans-serif;
+}
+
+.hero {
+  background: var(--primary);
+  color: white;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.search-box {
+  margin: 20px auto;
+  display: flex;
+  gap: 10px;
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  max-width: 800px;
+}
+
+.search-box input,
+.search-box select,
+.search-box button {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.search-box button {
+  background: var(--primary);
+  border: none;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.popular {
+  padding: 40px 20px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.card {
+  background: #f9fafb;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
