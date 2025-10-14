@@ -5,22 +5,15 @@ import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LogoutButton from "./components/LogoutButton.jsx";
 import LoginButton from "./components/LoginButton.jsx";
-
+import Search from "./pages/search.jsx"
 export default function App() {
   const navigate = useNavigate();
   return (
     <div>
-      <nav style={{ display: "flex", gap: 12, padding: 12 }}>
-        <Link to="/">Home</Link>
-        <button onClick={() => navigate("/login")}>Iniciar sesión</button>
-        <Link to="/profile">Perfil</Link>
-        <LoginButton />
-        <LogoutButton />
-      </nav>
-
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/buscar" element={<search />} />        
         <Route
           path="/profile"
           element={
