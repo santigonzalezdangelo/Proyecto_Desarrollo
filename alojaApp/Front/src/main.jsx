@@ -15,7 +15,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       clientId={clientId}
       authorizationParams={{
         redirect_uri: window.location.origin,
-        // audience: import.meta.env.VITE_AUTH0_AUDIENCE, // si usás API
+        // audience: import.meta.env.VITE_AUTH0_AUDIENCE, // si usás APIiiiiiiiii
       }}
       cacheLocation="localstorage"
       useRefreshTokens={true}
