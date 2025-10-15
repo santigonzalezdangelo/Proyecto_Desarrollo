@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
   res.json({ message: "API funcionando 🚀" });
 });
 
-// Endpoint de prueba - lista usuarios
+// Endpoint de prueba - lista usuario
 app.get("/usuarios", async (req, res) => {
   try {
     const result = await pool.query(`
