@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import SearchButton from "../components/SearchButton";
+import PropertyCard from "../components/PropertyCard";
 
 /**
  * AlojaApp – Home.jsx (FIX NAVIGATION)
@@ -168,28 +170,24 @@ function SearchBar({ onSearch }) {
             <input
               type="number"
               min={1}
+              max={30}
               value={guests}
-              onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
-              className="w-full bg-transparent outline-none"
-              aria-label="Cantidad de huéspedes"
+              onChange={(e) => {
+                const val = parseInt(e.target.value || "1", 10);
+                setGuests(Math.min(30, Math.max(1, val)));
+                }}
+                className="w-full bg-transparent outline-none"
+                aria-label="Cantidad de huéspedes"
             />
           </Field>
 
           {/* Botón Buscar */}
           <div className="flex justify-stretch md:justify-end">
-            <button
-              onClick={() => !disabled && onSearch?.({ location, checkIn, checkOut, guests })}
-              disabled={disabled}
-              className={classNames(
-                "w-full md:w-auto px-6 py-3 rounded-xl font-semibold transition-transform active:scale-[0.98]",
-                disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-95"
-              )}
-              style={{ backgroundColor: PRIMARY, color: TEXT_DARK }}
-              aria-label="Buscar"
-              data-testid="btn-buscar"
-            >
-              Buscar
-            </button>
+            <SearchButton
+                onClick={() => !disabled && onSearch?.({ location, checkIn, checkOut, guests })}
+                disabled={disabled}
+                label="Buscar"
+            />
           </div>
         </div>
       </div>
@@ -214,28 +212,6 @@ function Field({ label, icon, children }) {
 }
 
 // ====== Cards ======
-function PropertyCard({ image, title, subtitle, rating }) {
-  return (
-    <article className="overflow-hidden rounded-2xl shadow-md bg-white">
-      <div className="aspect-[16/10] w-full overflow-hidden">
-        <img src={image} alt={title} className="h-full w-full object-cover" />
-      </div>
-      <div className="p-4 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          {subtitle && <p className="text-sm text-slate-600">{subtitle}</p>}
-        </div>
-        {typeof rating === "number" && (
-          <div className="flex items-center gap-1" aria-label={`Calificación ${rating} de 5`}>
-            <StarIcon />
-            <span className="text-sm font-medium">{rating.toFixed(1)}</span>
-          </div>
-        )}
-      </div>
-    </article>
-  );
-}
-
 function DestinationsGrid() {
   // imágenes libres de Unsplash (placeholders)
   const items = [
