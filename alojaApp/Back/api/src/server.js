@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
   res.json({ message: "API funcionando 🚀" });
 });
 
-// Endpoint de prueba - lista usuario
+// Endpoint de prueba - lista usuarios
 app.get("/usuarios", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -350,6 +350,39 @@ app.get("/propiedades/:id", async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+
+// GET /localidades/search?q=...
+app.get('/localidades/search', async (req, res) => {
+  try {
+    const q = req.query.q?.trim();
+    if (!q) {
+      return res.status(400).json({ error: 'Parámetro q requerido' });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT 
+        l.nombre_localidad AS localidad,
+        c.nombre_ciudad AS ciudad,
+        p.nombre_pais AS pais
+      FROM localidad l
+      JOIN ciudad c ON l.id_ciudad = c.id_ciudad
+      JOIN pais p ON c.id_pais = p.id_pais
+      WHERE LOWER(l.nombre_localidad) LIKE LOWER($1)
+      ORDER BY l.nombre_localidad
+      LIMIT 10
+      `,
+      [`%${q}%`]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error al buscar localidades:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
 
 
 
