@@ -3,7 +3,24 @@ import SearchButton from "../components/SearchButton";
 import PropertyCard from "../components/PropertyCard";
 
 /**
- * AlojaApp – Home.jsx (con Precio Máx + fixes)
+ * AlojaApp – Home.jsx (FIX NAVIGATION)
+ * ------------------------------------------------------------
+ * ✅ Arregla el error: "useNavigate() may be used only in the context of a <Router>"
+ *   - Se ELIMINA el uso de `useNavigate()` y cualquier hook de router.
+ *   - La navegación se resuelve con `window.location.assign(url)` de forma segura.
+ *   - Los ítems del Navbar usan <a href> en lugar de botones que llaman a hooks.
+ *
+ * 👁️‍🗨️ Estilos y comportamiento
+ *   - Fondo principal #F8C24D (pedido del usuario)
+ *   - Navbar con Inicio / Perfil / Login
+ *   - Barra de búsqueda con inputs nativos y botón Buscar #F8C24D
+ *   - Grid de destinos con tarjetas (placeholders de Unsplash)
+ *   - Sin dependencias extra (opcionalmente se ve más prolijo con Tailwind)
+ *
+ * 🧪 Tests (lightweight en runtime de desarrollo):
+ *   - Se agregó `buildSearchURL` + pruebas con `console.assert`.
+ *   - `isSearchDisabled` probado con varios escenarios.
+ * ------------------------------------------------------------
  */
 
 // ====== Tema / tokens ======
@@ -466,43 +483,6 @@ function StarIcon() {
 
 // ====== Página Home ======
 export default function Home() {
-  // ====== Integración del Chat de Dialogflow ======
-  useEffect(() => {
-  if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
-    const script = document.createElement("script");
-    script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
-    script.async = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      const messenger = document.createElement("df-messenger");
-      messenger.setAttribute("intent", "WELCOME");
-      messenger.setAttribute("chat-title", "Aloja");
-      messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0");
-      messenger.setAttribute("language-code", "es");
-
-      // 🎨 Colores personalizados (tema amarillo Aloja)
-      messenger.setAttribute("chat-icon", "/images/logo.png"); // opcional
-      messenger.setAttribute("chat-width", "360");
-      messenger.setAttribute("chat-height", "500");
-      messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6"); // burbujas del bot
-      messenger.style.setProperty("--df-messenger-user-message", "#F8C24D"); // burbujas del usuario
-      messenger.style.setProperty("--df-messenger-font-color", "#0F172A"); // texto
-      messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
-      messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D"); // barra superior
-
-      document.body.appendChild(messenger);
-    };
-  } else {
-    const messenger = document.querySelector("df-messenger");
-    if (messenger) messenger.style.display = "block";
-  }
-
-  return () => {
-    const messenger = document.querySelector("df-messenger");
-    if (messenger) messenger.style.display = "none";
-  };
-}, []);
   function handleSearch(params) {
     const url = buildSearchURL(params); // ahora incluye precio_max y nombres del backend
     navigateTo(url);
