@@ -298,11 +298,12 @@ function SearchBar({ onSearch }) {
               }}
               className="w-full bg-transparent outline-none appearance-none"
               placeholder="Ej: 300"
+              
             />
           </Field>
 
 
-          {/* Botón Buscar */}
+          {/* Botón Buscarrrr*/}
           <div className="flex justify-center md:justify-end">
             <SearchButton
               onClick={() => !disabled && onSearch?.({
