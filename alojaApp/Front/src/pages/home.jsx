@@ -286,22 +286,18 @@ function SearchBar({ onSearch }) {
           </Field>
 
           {/* Precio máx (num libre, sin slider) */}
-          <Field label="Precio por noche" icon={<PesoIcon />}>
+          <Field label="Precio máx" icon={<PriceIcon />}>
             <input
-              type="text"
-              inputMode="numeric" // para mostrar solo teclado numérico en móviles
-              pattern="[0-9]*"     // acepta solo números
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step="1"
               value={maxPrice}
-              onChange={(e) => {
-                // solo números positivos
-                const val = e.target.value.replace(/\D/g, "");
-                setMaxPrice(val);
-              }}
-              className="w-full bg-transparent outline-none appearance-none" // 🔹 quita las flechas del input
+              onChange={(e) => setMaxPrice(e.target.value)}
+              className="w-full bg-transparent outline-none"
               placeholder="Ej: 300"
             />
           </Field>
-
 
           {/* Botón Buscar */}
           <div className="flex justify-center md:justify-end">
