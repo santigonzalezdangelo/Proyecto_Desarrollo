@@ -482,17 +482,59 @@ function StarIcon() {
 }
 
 // ====== Página Home ======
+// arriba del archivo: // suma useEffect si no estaba
+
 export default function Home() {
+  // ⬇ Chat Dialogflow dentro del componente (no afuera)
+  useEffect(() => {
+    // evita inyectar dos veces en dev/StrictMode
+    if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
+      script.async = true;
+      document.body.appendChild(script);
+
+      script.onload = () => {
+        const messenger = document.createElement("df-messenger");
+        messenger.setAttribute("intent", "WELCOME");
+        messenger.setAttribute("chat-title", "Aloja");
+        messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0"); // tu Agent ID
+        messenger.setAttribute("language-code", "es");
+
+        // (opcional) tema
+        messenger.setAttribute("chat-icon", "/images/logo.png");
+        messenger.setAttribute("chat-width", "360");
+        messenger.setAttribute("chat-height", "500");
+        messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6");
+        messenger.style.setProperty("--df-messenger-user-message", "#F8C24D");
+        messenger.style.setProperty("--df-messenger-font-color", "#0F172A");
+        messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
+        messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D");
+
+        document.body.appendChild(messenger);
+      };
+    } else {
+      // si ya existe, mostralo
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "block";
+    }
+
+    // cleanup: ocultar al salir de Home
+    return () => {
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "none";
+    };
+  }, []);
+
   function handleSearch(params) {
-    const url = buildSearchURL(params); // ahora incluye precio_max y nombres del backend
+    const url = buildSearchURL(params);
     navigateTo(url);
   }
 
   return (
     <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh" }}>
       <Navbar active="inicio" />
-
-      {/* Hero + Buscador */}
+      {/* ...tu contenido tal cual... */}
       <section className="mx-auto max-w-7xl px-4 pt-10 pb-8">
         <h1 className="text-4xl md:text-5xl font-extrabold leading-tight" style={{ color: TEXT_DARK }}>
           Encontrá alojamientos en alquiler
@@ -505,14 +547,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Grid de destinos */}
       <div className="rounded-t-[28px]" style={{ backgroundColor: "#FFF6DB" }}>
         <DestinationsGrid />
       </div>
 
       <Footer />
-    </div>
-  );
+    </div>
+  );
 }
 
 // ====== Smoke Tests (solo en desarrollo) ======
