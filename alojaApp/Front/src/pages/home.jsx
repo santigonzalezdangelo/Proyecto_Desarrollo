@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import SearchButton from "../components/SearchButton";
 import PropertyCard from "../components/PropertyCard";
 
 /**
  * AlojaApp – Home.jsx (FIX NAVIGATION)
- * ------------------------------------------------------------
+ * -------------------------------------------------------------
  * ✅ Arregla el error: "useNavigate() may be used only in the context of a <Router>"
  *   - Se ELIMINA el uso de `useNavigate()` y cualquier hook de router.
  *   - La navegación se resuelve con `window.location.assign(url)` de forma segura.
@@ -307,6 +307,36 @@ function StarIcon() {
 
 // ====== Página Home ======
 export default function Home() {
+    // ====== Integración del Chat de Dialogflow ======
+  useEffect(() => {
+    // Evita cargar el script más de una vez
+    if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
+      script.async = true;
+      document.body.appendChild(script);
+
+      script.onload = () => {
+        const messenger = document.createElement("df-messenger");
+        messenger.setAttribute("intent", "WELCOME");
+        messenger.setAttribute("chat-title", "Aloja");
+        messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0"); // <-- reemplazá con tu Agent ID real
+        messenger.setAttribute("language-code", "es");
+        document.body.appendChild(messenger);
+      };
+    } else {
+      // Si ya existe, lo mostramos
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "block";
+    }
+
+    // Cleanup al salir del Home
+    return () => {
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "none";
+    };
+  }, []);
+
   function handleSearch(params) {
     const url = buildSearchURL(params);
     navigateTo(url);
