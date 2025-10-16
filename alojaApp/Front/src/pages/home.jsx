@@ -1,34 +1,17 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import SearchButton from "../components/SearchButton";
 import PropertyCard from "../components/PropertyCard";
 
 /**
- * AlojaApp – Home.jsx (FIX NAVIGATION)
- * ------------------------------------------------------------
- * ✅ Arregla el error: "useNavigate() may be used only in the context of a <Router>"
- *   - Se ELIMINA el uso de `useNavigate()` y cualquier hook de router.
- *   - La navegación se resuelve con `window.location.assign(url)` de forma segura.
- *   - Los ítems del Navbar usan <a href> en lugar de botones que llaman a hooks.
- *
- * 👁️‍🗨️ Estilos y comportamiento
- *   - Fondo principal #F8C24D (pedido del usuario)
- *   - Navbar con Inicio / Perfil / Login
- *   - Barra de búsqueda con inputs nativos y botón Buscar #F8C24D
- *   - Grid de destinos con tarjetas (placeholders de Unsplash)
- *   - Sin dependencias extra (opcionalmente se ve más prolijo con Tailwind)
- *
- * 🧪 Tests (lightweight en runtime de desarrollo):
- *   - Se agregó `buildSearchURL` + pruebas con `console.assert`.
- *   - `isSearchDisabled` probado con varios escenarios.
- * ------------------------------------------------------------
+ * AlojaApp – Home.jsx (con Precio Máx + fixes)
  */
 
 // ====== Tema / tokens ======
-const PRIMARY = "#F8C24D"; // pedido del usuario
-const TEXT_DARK = "#0F172A"; // slate-900
-const TEXT_MUTED = "#334155"; // slate-700
+const PRIMARY = "#F8C24D";
+const TEXT_DARK = "#0F172A";
+const TEXT_MUTED = "#334155";
 const CARD_BG = "#FFFFFF";
-const PAGE_BG = PRIMARY; // fondo pedido
+const PAGE_BG = PRIMARY;
 
 // ====== Helpers ======
 function classNames(...xs) {
@@ -38,18 +21,41 @@ function classNames(...xs) {
 /** Navega de forma segura sin depender de Router. */
 function navigateTo(url) {
   if (typeof window !== "undefined" && url) {
-    // Preferimos no usar pushState para evitar estados inconsistentes
     window.location.assign(url);
   }
 }
 
-/** Construye la URL de búsqueda (también usada en tests). */
-export function buildSearchURL({ location, checkIn, checkOut, guests }) {
-  const params = new URLSearchParams({ location, checkIn, checkOut, guests: String(guests) });
+/** Mapeo temporal: texto de ubicación -> id_localidad (reemplazar por IDs reales o un <select>) */
+const LOCALIDAD_ID = {
+  "Buenos Aires": 1,
+  "Córdoba": 2,
+  "Rosario": 3,
+  // TODO: reemplazar por valores reales o resolver con un autocomplete/selector
+};
+
+/** Construye la URL de búsqueda con los NOMBRES que espera TU backend */
+export function buildSearchURL({ location, checkIn, checkOut, guests, maxPrice }) {
+  // Si el usuario ya puso un número, lo tomamos como id_localidad
+  const maybeId = Number(location);
+  const id_localidad = Number.isFinite(maybeId)
+    ? String(maybeId)
+    : (LOCALIDAD_ID[location] ? String(LOCALIDAD_ID[location]) : "");
+
+  const params = new URLSearchParams({
+    fecha_inicio: checkIn || "",
+    fecha_fin: checkOut || "",
+    huespedes: guests != null ? String(guests) : "",
+    id_localidad: id_localidad,
+  });
+
+  if (maxPrice != null && String(maxPrice).trim() !== "") {
+    params.set("precio_max", String(maxPrice));
+  }
+
   return `/buscar?${params.toString()}`;
 }
 
-/** Determina si la búsqueda debe estar deshabilitada. */
+/** Determina si la búsqueda debe estar deshabilitada (precio es opcional) */
 export function isSearchDisabled({ location, checkIn, checkOut, guests }) {
   if (!location || !checkIn || !checkOut) return true;
   const g = Number(guests);
@@ -67,7 +73,7 @@ function Navbar({ active = "inicio" }) {
     <header
       className="sticky top-0 z-50 w-full shadow-md"
       style={{
-        backgroundColor: "#F5DCA1", // fondo sólido
+        backgroundColor: "#F5DCA1",
         color: TEXT_DARK,
       }}
       aria-label="Barra de navegación"
@@ -77,14 +83,10 @@ function Navbar({ active = "inicio" }) {
         <div className="flex items-center gap-3">
           <a href="/" aria-label="Ir al inicio">
             <img
-              src="/images/logo.png" // ✅ ruta correcta para Vite
+              src="/images/logo.png"
               alt="AlojaApp"
               className="object-contain"
-              style={{
-                maxHeight: "70px",
-                height: "auto",
-                width: "auto",
-              }}
+              style={{ maxHeight: "70px", height: "auto", width: "auto" }}
             />
           </a>
         </div>
@@ -97,15 +99,10 @@ function Navbar({ active = "inicio" }) {
               href={it.href}
               className={classNames(
                 "text-base transition-colors",
-                active === it.key
-                  ? "font-semibold"
-                  : "opacity-80 hover:opacity-100"
+                active === it.key ? "font-semibold" : "opacity-80 hover:opacity-100"
               )}
               aria-current={active === it.key ? "page" : undefined}
-              style={{
-                color: TEXT_DARK,
-                textDecoration: "none",
-              }}
+              style={{ color: TEXT_DARK, textDecoration: "none" }}
             >
               {it.label}
             </a>
@@ -122,6 +119,7 @@ function SearchBar({ onSearch }) {
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
+  const [maxPrice, setMaxPrice] = useState("");
 
   const disabled = useMemo(
     () => isSearchDisabled({ location, checkIn, checkOut, guests }),
@@ -129,64 +127,79 @@ function SearchBar({ onSearch }) {
   );
 
   return (
-    <div className="w-full max-w-5xl mx-auto" role="search" aria-label="Buscador de alojamientos">
-      <div className="rounded-2xl shadow-xl" style={{ backgroundColor: CARD_BG }}>
-        <div className="p-3 md:p-4 grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-2 items-center">
-          {/* Ubicación */}
+    <div
+      className="w-full max-w-6xl mx-auto" // 🔹 más ancha (antes max-w-5xl)
+      role="search"
+      aria-label="Buscador de alojamientos"
+    >
+      <div
+        className="rounded-2xl shadow-xl p-4 md:p-5"
+        style={{
+          backgroundColor: CARD_BG,
+          border: "1px solid rgba(0,0,0,0.05)",
+        }}
+      >
+        {/* 🔹 Cambié a grid de 6 columnas iguales */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
           <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ciudad, región o país"
+              placeholder="Ciudad o ID localidad"
               className="w-full bg-transparent outline-none"
               aria-label="Destino"
             />
           </Field>
 
-          {/* Check-in */}
           <Field label="Fecha de llegada" icon={<CalendarIcon />}>
             <input
               type="date"
               value={checkIn}
               onChange={(e) => setCheckIn(e.target.value)}
               className="w-full bg-transparent outline-none"
-              aria-label="Fecha de llegada"
             />
           </Field>
 
-          {/* Check-out */}
           <Field label="Fecha de salida" icon={<CalendarIcon />}>
             <input
               type="date"
               value={checkOut}
               onChange={(e) => setCheckOut(e.target.value)}
               className="w-full bg-transparent outline-none"
-              aria-label="Fecha de salida"
             />
           </Field>
 
-          {/* Huéspedes */}
           <Field label="Huéspedes" icon={<UsersIcon />}>
             <input
               type="number"
               min={1}
               max={30}
               value={guests}
-              onChange={(e) => {
-                const val = parseInt(e.target.value || "1", 10);
-                setGuests(Math.min(30, Math.max(1, val)));
-                }}
-                className="w-full bg-transparent outline-none"
-                aria-label="Cantidad de huéspedes"
+              onChange={(e) =>
+                setGuests(Math.min(30, Math.max(1, parseInt(e.target.value || "1", 10))))
+              }
+              className="w-full bg-transparent outline-none"
             />
           </Field>
 
-          {/* Botón Buscar */}
-          <div className="flex justify-stretch md:justify-end">
+          {/* 🔹 Precio máx ahora ocupa exactamente el mismo ancho */}
+          <Field label="Precio máx" icon={<PriceIcon />}>
+            <input
+              type="number"
+              min={0}
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              className="w-full bg-transparent outline-none"
+              placeholder="Ej: 300"
+            />
+          </Field>
+
+          {/* Botón buscar, más grande y centrado */}
+          <div className="flex justify-center md:justify-end">
             <SearchButton
-                onClick={() => !disabled && onSearch?.({ location, checkIn, checkOut, guests })}
-                disabled={disabled}
-                label="Buscar"
+              onClick={() => !disabled && onSearch?.({ location, checkIn, checkOut, guests, maxPrice })}
+              disabled={disabled}
+              label="Buscar"
             />
           </div>
         </div>
@@ -194,6 +207,7 @@ function SearchBar({ onSearch }) {
     </div>
   );
 }
+
 
 function Field({ label, icon, children }) {
   return (
@@ -211,41 +225,54 @@ function Field({ label, icon, children }) {
   );
 }
 
-// ====== Cards ======
+// ====== Cards (Home: destacadas) ======
 function DestinationsGrid() {
-  // imágenes libres de Unsplash (placeholders)
-  const items = [
-    {
-      image: "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?q=80&w=1600&auto=format&fit=crop",
-      title: "Ciudad de México, México",
-      subtitle: "Depto céntrico con vista",
-      rating: 4.8,
-    },
-    {
-      image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
-      title: "Roma, Italia",
-      subtitle: "Apartamento luminoso",
-      rating: 4.7,
-    },
-    {
-      image: "https://images.unsplash.com/photo-1501045661006-fcebe0257c3f?q=80&w=1600&auto=format&fit=crop",
-      title: "Barcelona, España",
-      subtitle: "Cerca del mar",
-      rating: 4.9,
-    },
-    {
-      image: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1600&auto=format&fit=crop",
-      title: "Nueva York, EE.UU.",
-      subtitle: "Loft en Brooklyn",
-      rating: 4.6,
-    },
-  ];
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchProperties() {
+      try {
+        const res = await fetch("http://localhost:4000/propiedades/destacadas");
+        const data = await res.json();
+        setItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error cargando propiedades:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProperties();
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
+        Cargando propiedades...
+      </section>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
+        No se encontraron propiedades destacadas.
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-10">
-      <h2 className="text-2xl font-semibold text-slate-900 mb-6">Destinos populares</h2>
+      <h2 className="text-2xl font-semibold text-slate-900 mb-6">Propiedades destacadas</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {items.map((it, i) => (
-          <PropertyCard key={i} {...it} />
+        {items.map((p) => (
+          <PropertyCard
+            key={p.id_propiedad || `${p.titulo}-${p.localidad}`}
+            image={p.imagen_url || "https://via.placeholder.com/400x250?text=AlojaApp"}
+            title={`${p.titulo ?? "Propiedad"} – ${p.localidad ?? ""}`}
+            subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`} 
+            rating={Number(p.rating ?? p.puntuacion ?? 0)}
+          />
         ))}
       </div>
     </section>
@@ -297,6 +324,13 @@ function UsersIcon() {
     </svg>
   );
 }
+function PriceIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M12 3v18M7 7h6a4 4 0 1 1 0 8H7" stroke={TEXT_MUTED} strokeWidth="1.5" />
+    </svg>
+  );
+}
 function StarIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -307,10 +341,46 @@ function StarIcon() {
 
 // ====== Página Home ======
 export default function Home() {
+  // ====== Integración del Chat de Dialogflow ======
+  useEffect(() => {
+  if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
+    const script = document.createElement("script");
+    script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
+    script.async = true;
+    document.body.appendChild(script);
+
+    script.onload = () => {
+      const messenger = document.createElement("df-messenger");
+      messenger.setAttribute("intent", "WELCOME");
+      messenger.setAttribute("chat-title", "Aloja");
+      messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0");
+      messenger.setAttribute("language-code", "es");
+
+      // 🎨 Colores personalizados (tema amarillo Aloja)
+      messenger.setAttribute("chat-icon", "/images/logo.png"); // opcional
+      messenger.setAttribute("chat-width", "360");
+      messenger.setAttribute("chat-height", "500");
+      messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6"); // burbujas del bot
+      messenger.style.setProperty("--df-messenger-user-message", "#F8C24D"); // burbujas del usuario
+      messenger.style.setProperty("--df-messenger-font-color", "#0F172A"); // texto
+      messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
+      messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D"); // barra superior
+
+      document.body.appendChild(messenger);
+    };
+  } else {
+    const messenger = document.querySelector("df-messenger");
+    if (messenger) messenger.style.display = "block";
+  }
+
+  return () => {
+    const messenger = document.querySelector("df-messenger");
+    if (messenger) messenger.style.display = "none";
+  };
+}, []);
   function handleSearch(params) {
-    const url = buildSearchURL(params);
+    const url = buildSearchURL(params); // ahora incluye precio_max y nombres del backend
     navigateTo(url);
-    console.log("Buscar →", params);
   }
 
   return (
@@ -343,41 +413,23 @@ export default function Home() {
 // ====== Smoke Tests (solo en desarrollo) ======
 function __runSmokeTests() {
   try {
-    // buildSearchURL
-    const url1 = buildSearchURL({ location: "Roma", checkIn: "2025-10-10", checkOut: "2025-10-12", guests: 2 });
-    console.assert(url1.startsWith("/buscar?"), "[TEST] buildSearchURL debe iniciar con /buscar?");
-    console.assert(url1.includes("location=Roma"), "[TEST] buildSearchURL debe incluir location");
-    console.assert(url1.includes("checkIn=2025-10-10"), "[TEST] buildSearchURL debe incluir checkIn");
-    console.assert(url1.includes("guests=2"), "[TEST] buildSearchURL debe incluir guests");
-
-    // isSearchDisabled
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "2025-01-01", checkOut: "2025-01-02", guests: 1 }) === false,
-      "[TEST] isSearchDisabled debe habilitar al tener datos válidos"
-    );
-    console.assert(
-      isSearchDisabled({ location: "", checkIn: "2025-01-01", checkOut: "2025-01-02", guests: 1 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si falta location"
-    );
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "", checkOut: "2025-01-02", guests: 1 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si falta checkIn"
-    );
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "2025-01-01", checkOut: "", guests: 1 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si falta checkOut"
-    );
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "2025-01-01", checkOut: "2025-01-02", guests: 0 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si guests < 1"
-    );
+    const url1 = buildSearchURL({
+      location: "1", // id_localidad directo
+      checkIn: "2025-10-10",
+      checkOut: "2025-10-12",
+      guests: 2,
+      maxPrice: 300,
+    });
+    console.assert(url1.startsWith("/buscar?"), "[TEST] URL debe iniciar con /buscar?");
+    console.assert(url1.includes("fecha_inicio=2025-10-10"), "[TEST] Debe mapear fecha_inicio");
+    console.assert(url1.includes("huespedes=2"), "[TEST] Debe incluir huespedes");
+    console.assert(url1.includes("precio_max=300"), "[TEST] Debe incluir precio_max");
   } catch (err) {
     console.error("[SmokeTests] Error ejecutando tests:", err);
   }
 }
 
 if (typeof window !== "undefined") {
-  // Ejecutar pruebas solo en dev si Vite está presente y no es producción
   const mode = (import.meta && import.meta.env && import.meta.env.MODE) || "development";
   if (mode !== "production") __runSmokeTests();
 }
