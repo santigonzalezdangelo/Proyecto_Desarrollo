@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
   res.json({ message: "API funcionando 🚀" });
 });
 
-// Endpoint de prueba - lista usuarios
+// Endpoint de prueba - lista usuario
 app.get("/usuarios", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -267,6 +267,47 @@ app.get("/propiedades/disponibles", async (req, res) => {
   }
 });
 
+// GET /propiedades/destacadas
+app.get("/propiedades/destacadas", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        p.id_propiedad,
+        p.nombre_de_fantasia AS titulo,
+        p.descripcion AS subtitulo,
+        p.precio_por_noche,
+        l.nombre_localidad AS localidad,
+        c.nombre_ciudad AS ciudad,
+        pa.nombre_pais AS pais,
+        COALESCE(ROUND(AVG(cp.puntuacion),1), 0) AS rating,
+        f.nombre AS imagen_url
+      FROM propiedad p
+      JOIN localidad l ON p.id_localidad = l.id_localidad
+      JOIN ciudad c ON l.id_ciudad = c.id_ciudad
+      JOIN pais pa ON c.id_pais = pa.id_pais
+      LEFT JOIN calificacionpropiedad cp ON p.id_propiedad = cp.id_propiedad
+      LEFT JOIN foto f ON f.id_propiedad = p.id_propiedad
+      GROUP BY 
+        p.id_propiedad, 
+        l.nombre_localidad, 
+        c.nombre_ciudad, 
+        pa.nombre_pais,
+        f.nombre
+      ORDER BY rating DESC
+      LIMIT 8
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error al obtener propiedades destacadas:", error);
+    res.status(500).json({ error: "Error al obtener propiedades destacadas" });
+  }
+});
+
+
+
+
+
 //PRUEBAS
 app.get("/propiedades/:id", async (req, res) => {
   const { id } = req.params;
@@ -381,6 +422,7 @@ app.get('/localidades/search', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 
 
