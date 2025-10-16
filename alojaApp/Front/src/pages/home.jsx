@@ -286,18 +286,21 @@ function SearchBar({ onSearch }) {
           </Field>
 
           {/* Precio máx (num libre, sin slider) */}
-          <Field label="Precio máx" icon={<PriceIcon />}>
+          <Field label="Precio por noche" icon={<PriceIcon />}>
             <input
-              type="number"
+              type="text"
               inputMode="numeric"
-              min={0}
-              step="1"
+              pattern="[0-9]*"
               value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-full bg-transparent outline-none"
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, ""); // solo números
+                setMaxPrice(val);
+              }}
+              className="w-full bg-transparent outline-none appearance-none"
               placeholder="Ej: 300"
             />
           </Field>
+
 
           {/* Botón Buscar */}
           <div className="flex justify-center md:justify-end">
@@ -438,11 +441,20 @@ function UsersIcon() {
 }
 function PriceIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <path d="M12 3v18M7 7h6a4 4 0 1 1 0 8H7" stroke={TEXT_MUTED} strokeWidth="1.5" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <text
+        x="4"
+        y="18"
+        fontSize="16"
+        fontWeight="bold"
+        fill={TEXT_MUTED}
+      >
+        $
+      </text>
     </svg>
   );
 }
+
 function StarIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
