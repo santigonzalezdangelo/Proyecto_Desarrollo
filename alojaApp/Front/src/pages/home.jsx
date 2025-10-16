@@ -114,90 +114,205 @@ function Navbar({ active = "inicio" }) {
 }
 
 // ====== Search Bar ======
+// ====== Helpers extra ======
+function debounce(fn, wait = 300) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+// ====== Search Bar ======
 function SearchBar({ onSearch }) {
-  const [location, setLocation] = useState("");
+  const [locationText, setLocationText] = useState("");     // lo que escribe el usuario
+  const [idLocalidad, setIdLocalidad] = useState("");       // el ID real seleccionado
+  const [sugs, setSugs] = useState([]);                     // sugerencias
+  const [openSugs, setOpenSugs] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
   const [maxPrice, setMaxPrice] = useState("");
 
-  const disabled = useMemo(
-    () => isSearchDisabled({ location, checkIn, checkOut, guests }),
-    [location, checkIn, checkOut, guests]
-  );
+  // hoy como mínimo para check-in (opcional)
+  const today = new Date().toISOString().slice(0,10);
+
+  // Validación: deshabilitar si faltan campos o si checkOut < checkIn
+  const disabled = useMemo(() => {
+    if (!idLocalidad || !checkIn || !checkOut) return true;
+    if (new Date(checkOut) < new Date(checkIn)) return true;
+    const g = Number(guests);
+    return !(Number.isFinite(g) && g >= 1);
+  }, [idLocalidad, checkIn, checkOut, guests]);
+
+  // Mantener coherencia: si usuario baja checkOut por debajo de checkIn, corrige
+  useEffect(() => {
+    if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) {
+      setCheckOut(checkIn);
+    }
+  }, [checkIn, checkOut]);
+
+  // Buscar sugerencias con debounce mientras escribe
+  const fetchSugs = useMemo(() => debounce(async (q) => {
+    if (!q || q.trim().length < 1) { setSugs([]); setOpenSugs(false); return; }
+    try {
+      const res = await fetch(`http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      setSugs(Array.isArray(data) ? data : []);
+      setOpenSugs(true);
+      setActiveIdx(-1);
+    } catch (e) {
+      console.error("Autocomplete error:", e);
+      setSugs([]);
+      setOpenSugs(false);
+    }
+  }, 250), []);
+
+  // Cada letra actualiza y dispara el debounce
+  function handleLocationChange(e) {
+    const val = e.target.value;
+    setLocationText(val);
+    setIdLocalidad("");    // invalida selección previa
+    fetchSugs(val);
+  }
+
+  function selectSuggestion(s) {
+    // Mostramos texto bonito y guardamos el ID real
+    setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`);
+    setIdLocalidad(String(s.id_localidad));
+    setOpenSugs(false);
+  }
+
+  function handleKeyDown(e) {
+    if (!openSugs || sugs.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % sugs.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length);
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      selectSuggestion(sugs[activeIdx]);
+    } else if (e.key === "Escape") {
+      setOpenSugs(false);
+    }
+  }
 
   return (
-    <div
-      className="w-full max-w-6xl mx-auto" // 🔹 más ancha (antes max-w-5xl)
-      role="search"
-      aria-label="Buscador de alojamientos"
-    >
+    <div className="w-full max-w-6xl mx-auto" role="search" aria-label="Buscador de alojamientos">
       <div
         className="rounded-2xl shadow-xl p-4 md:p-5"
-        style={{
-          backgroundColor: CARD_BG,
-          border: "1px solid rgba(0,0,0,0.05)",
-        }}
+        style={{ backgroundColor: CARD_BG, border: "1px solid rgba(0,0,0,0.05)" }}
       >
-        {/* 🔹 Cambié a grid de 6 columnas iguales */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-          <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ciudad o ID localidad"
-              className="w-full bg-transparent outline-none"
-              aria-label="Destino"
-            />
-          </Field>
+          {/* Ubicación + Autocomplete */}
+          <div className="relative md:col-span-2">
+            <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
+              <input
+                value={locationText}
+                onChange={handleLocationChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => sugs.length && setOpenSugs(true)}
+                placeholder="Localidad (ej.: Centro, Palermo...)"
+                className="w-full bg-transparent outline-none"
+                aria-label="Destino"
+              />
+            </Field>
 
+            {openSugs && sugs.length > 0 && (
+              <ul
+                className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md"
+                role="listbox"
+              >
+                {sugs.map((s, idx) => (
+                  <li
+                    key={s.id_localidad}
+                    role="option"
+                    aria-selected={activeIdx === idx}
+                    className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
+                    onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                  >
+                    <div className="text-sm font-medium">{s.localidad}</div>
+                    <div className="text-xs text-slate-600">{s.ciudad}, {s.pais}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Check-in */}
           <Field label="Fecha de llegada" icon={<CalendarIcon />}>
             <input
               type="date"
+              min={today}
               value={checkIn}
               onChange={(e) => setCheckIn(e.target.value)}
               className="w-full bg-transparent outline-none"
             />
           </Field>
 
+          {/* Check-out (no menor que check-in) */}
           <Field label="Fecha de salida" icon={<CalendarIcon />}>
             <input
               type="date"
+              min={checkIn || today}
               value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (checkIn && new Date(v) < new Date(checkIn)) {
+                  setCheckOut(checkIn);
+                } else {
+                  setCheckOut(v);
+                }
+              }}
               className="w-full bg-transparent outline-none"
             />
           </Field>
 
+          {/* Huéspedes */}
           <Field label="Huéspedes" icon={<UsersIcon />}>
             <input
               type="number"
               min={1}
-              max={30}
               value={guests}
-              onChange={(e) =>
-                setGuests(Math.min(30, Math.max(1, parseInt(e.target.value || "1", 10))))
-              }
+              onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
               className="w-full bg-transparent outline-none"
             />
           </Field>
 
-          {/* 🔹 Precio máx ahora ocupa exactamente el mismo ancho */}
-          <Field label="Precio máx" icon={<PriceIcon />}>
+          {/* Precio máx (num libre, sin slider) */}
+          <Field label="Precio por noche" icon={<PesoIcon />}>
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric" // para mostrar solo teclado numérico en móviles
+              pattern="[0-9]*"     // acepta solo números
               value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-full bg-transparent outline-none"
+              onChange={(e) => {
+                // solo números positivos
+                const val = e.target.value.replace(/\D/g, "");
+                setMaxPrice(val);
+              }}
+              className="w-full bg-transparent outline-none appearance-none" // 🔹 quita las flechas del input
               placeholder="Ej: 300"
             />
           </Field>
 
-          {/* Botón buscar, más grande y centrado */}
+
+          {/* Botón Buscar */}
           <div className="flex justify-center md:justify-end">
             <SearchButton
-              onClick={() => !disabled && onSearch?.({ location, checkIn, checkOut, guests, maxPrice })}
+              onClick={() => !disabled && onSearch?.({
+                location: idLocalidad,            // 👈 mandamos el ID real
+                checkIn,
+                checkOut,
+                guests,
+                maxPrice
+              })}
               disabled={disabled}
               label="Buscar"
             />
@@ -207,6 +322,7 @@ function SearchBar({ onSearch }) {
     </div>
   );
 }
+
 
 
 function Field({ label, icon, children }) {
