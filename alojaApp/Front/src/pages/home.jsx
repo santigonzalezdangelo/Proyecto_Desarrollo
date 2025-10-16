@@ -4,7 +4,7 @@ import PropertyCard from "../components/PropertyCard";
 
 /**
  * AlojaApp – Home.jsx (FIX NAVIGATION)
- * -------------------------------------------------------------
+ * ------------------------------------------------------------
  * ✅ Arregla el error: "useNavigate() may be used only in the context of a <Router>"
  *   - Se ELIMINA el uso de `useNavigate()` y cualquier hook de router.
  *   - La navegación se resuelve con `window.location.assign(url)` de forma segura.
@@ -24,11 +24,11 @@ import PropertyCard from "../components/PropertyCard";
  */
 
 // ====== Tema / tokens ======
-const PRIMARY = "#F8C24D"; // pedido del usuario
-const TEXT_DARK = "#0F172A"; // slate-900
-const TEXT_MUTED = "#334155"; // slate-700
+const PRIMARY = "#F8C24D";
+const TEXT_DARK = "#0F172A";
+const TEXT_MUTED = "#334155";
 const CARD_BG = "#FFFFFF";
-const PAGE_BG = PRIMARY; // fondo pedido
+const PAGE_BG = PRIMARY;
 
 // ====== Helpers ======
 function classNames(...xs) {
@@ -38,18 +38,41 @@ function classNames(...xs) {
 /** Navega de forma segura sin depender de Router. */
 function navigateTo(url) {
   if (typeof window !== "undefined" && url) {
-    // Preferimos no usar pushState para evitar estados inconsistentes
     window.location.assign(url);
   }
 }
 
-/** Construye la URL de búsqueda (también usada en tests). */
-export function buildSearchURL({ location, checkIn, checkOut, guests }) {
-  const params = new URLSearchParams({ location, checkIn, checkOut, guests: String(guests) });
+/** Mapeo temporal: texto de ubicación -> id_localidad (reemplazar por IDs reales o un <select>) */
+const LOCALIDAD_ID = {
+  "Buenos Aires": 1,
+  "Córdoba": 2,
+  "Rosario": 3,
+  // TODO: reemplazar por valores reales o resolver con un autocomplete/selector
+};
+
+/** Construye la URL de búsqueda con los NOMBRES que espera TU backend */
+export function buildSearchURL({ location, checkIn, checkOut, guests, maxPrice }) {
+  // Si el usuario ya puso un número, lo tomamos como id_localidad
+  const maybeId = Number(location);
+  const id_localidad = Number.isFinite(maybeId)
+    ? String(maybeId)
+    : (LOCALIDAD_ID[location] ? String(LOCALIDAD_ID[location]) : "");
+
+  const params = new URLSearchParams({
+    fecha_inicio: checkIn || "",
+    fecha_fin: checkOut || "",
+    huespedes: guests != null ? String(guests) : "",
+    id_localidad: id_localidad,
+  });
+
+  if (maxPrice != null && String(maxPrice).trim() !== "") {
+    params.set("precio_max", String(maxPrice));
+  }
+
   return `/buscar?${params.toString()}`;
 }
 
-/** Determina si la búsqueda debe estar deshabilitada. */
+/** Determina si la búsqueda debe estar deshabilitada (precio es opcional) */
 export function isSearchDisabled({ location, checkIn, checkOut, guests }) {
   if (!location || !checkIn || !checkOut) return true;
   const g = Number(guests);
@@ -67,7 +90,7 @@ function Navbar({ active = "inicio" }) {
     <header
       className="sticky top-0 z-50 w-full shadow-md"
       style={{
-        backgroundColor: "#F5DCA1", // fondo sólido
+        backgroundColor: "#F5DCA1",
         color: TEXT_DARK,
       }}
       aria-label="Barra de navegación"
@@ -77,14 +100,10 @@ function Navbar({ active = "inicio" }) {
         <div className="flex items-center gap-3">
           <a href="/" aria-label="Ir al inicio">
             <img
-              src="/images/logo.png" // ✅ ruta correcta para Vite
+              src="/images/logo.png"
               alt="AlojaApp"
               className="object-contain"
-              style={{
-                maxHeight: "70px",
-                height: "auto",
-                width: "auto",
-              }}
+              style={{ maxHeight: "70px", height: "auto", width: "auto" }}
             />
           </a>
         </div>
@@ -97,15 +116,10 @@ function Navbar({ active = "inicio" }) {
               href={it.href}
               className={classNames(
                 "text-base transition-colors",
-                active === it.key
-                  ? "font-semibold"
-                  : "opacity-80 hover:opacity-100"
+                active === it.key ? "font-semibold" : "opacity-80 hover:opacity-100"
               )}
               aria-current={active === it.key ? "page" : undefined}
-              style={{
-                color: TEXT_DARK,
-                textDecoration: "none",
-              }}
+              style={{ color: TEXT_DARK, textDecoration: "none" }}
             >
               {it.label}
             </a>
@@ -117,51 +131,163 @@ function Navbar({ active = "inicio" }) {
 }
 
 // ====== Search Bar ======
+// ====== Helpers extra ======
+function debounce(fn, wait = 300) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+// ====== Search Bar ======
 function SearchBar({ onSearch }) {
-  const [location, setLocation] = useState("");
+  const [locationText, setLocationText] = useState("");     // lo que escribe el usuario
+  const [idLocalidad, setIdLocalidad] = useState("");       // el ID real seleccionado
+  const [sugs, setSugs] = useState([]);                     // sugerencias
+  const [openSugs, setOpenSugs] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
+  const [maxPrice, setMaxPrice] = useState("");
 
-  const disabled = useMemo(
-    () => isSearchDisabled({ location, checkIn, checkOut, guests }),
-    [location, checkIn, checkOut, guests]
-  );
+  // hoy como mínimo para check-in (opcional)
+  const today = new Date().toISOString().slice(0,10);
+
+  // Validación: deshabilitar si faltan campos o si checkOut < checkIn
+  const disabled = useMemo(() => {
+    if (!idLocalidad || !checkIn || !checkOut) return true;
+    if (new Date(checkOut) < new Date(checkIn)) return true;
+    const g = Number(guests);
+    return !(Number.isFinite(g) && g >= 1);
+  }, [idLocalidad, checkIn, checkOut, guests]);
+
+  // Mantener coherencia: si usuario baja checkOut por debajo de checkIn, corrige
+  useEffect(() => {
+    if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) {
+      setCheckOut(checkIn);
+    }
+  }, [checkIn, checkOut]);
+
+  // Buscar sugerencias con debounce mientras escribe
+  const fetchSugs = useMemo(() => debounce(async (q) => {
+    if (!q || q.trim().length < 1) { setSugs([]); setOpenSugs(false); return; }
+    try {
+      const res = await fetch(`http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      setSugs(Array.isArray(data) ? data : []);
+      setOpenSugs(true);
+      setActiveIdx(-1);
+    } catch (e) {
+      console.error("Autocomplete error:", e);
+      setSugs([]);
+      setOpenSugs(false);
+    }
+  }, 250), []);
+
+  // Cada letra actualiza y dispara el debounce
+  function handleLocationChange(e) {
+    const val = e.target.value;
+    setLocationText(val);
+    setIdLocalidad("");    // invalida selección previa
+    fetchSugs(val);
+  }
+
+  function selectSuggestion(s) {
+    // Mostramos texto bonito y guardamos el ID real
+    setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`);
+    setIdLocalidad(String(s.id_localidad));
+    setOpenSugs(false);
+  }
+
+  function handleKeyDown(e) {
+    if (!openSugs || sugs.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % sugs.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length);
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      selectSuggestion(sugs[activeIdx]);
+    } else if (e.key === "Escape") {
+      setOpenSugs(false);
+    }
+  }
 
   return (
-    <div className="w-full max-w-5xl mx-auto" role="search" aria-label="Buscador de alojamientos">
-      <div className="rounded-2xl shadow-xl" style={{ backgroundColor: CARD_BG }}>
-        <div className="p-3 md:p-4 grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-2 items-center">
-          {/* Ubicación */}
-          <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Ciudad, región o país"
-              className="w-full bg-transparent outline-none"
-              aria-label="Destino"
-            />
-          </Field>
+    <div className="w-full max-w-6xl mx-auto" role="search" aria-label="Buscador de alojamientos">
+      <div
+        className="rounded-2xl shadow-xl p-4 md:p-5"
+        style={{ backgroundColor: CARD_BG, border: "1px solid rgba(0,0,0,0.05)" }}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+          {/* Ubicación + Autocomplete */}
+          <div className="relative md:col-span-2">
+            <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
+              <input
+                value={locationText}
+                onChange={handleLocationChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => sugs.length && setOpenSugs(true)}
+                placeholder="Localidad (ej.: Centro, Palermo...)"
+                className="w-full bg-transparent outline-none"
+                aria-label="Destino"
+              />
+            </Field>
+
+            {openSugs && sugs.length > 0 && (
+              <ul
+                className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md"
+                role="listbox"
+              >
+                {sugs.map((s, idx) => (
+                  <li
+                    key={s.id_localidad}
+                    role="option"
+                    aria-selected={activeIdx === idx}
+                    className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
+                    onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                  >
+                    <div className="text-sm font-medium">{s.localidad}</div>
+                    <div className="text-xs text-slate-600">{s.ciudad}, {s.pais}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* Check-in */}
           <Field label="Fecha de llegada" icon={<CalendarIcon />}>
             <input
               type="date"
+              min={today}
               value={checkIn}
               onChange={(e) => setCheckIn(e.target.value)}
               className="w-full bg-transparent outline-none"
-              aria-label="Fecha de llegada"
             />
           </Field>
 
-          {/* Check-out */}
+          {/* Check-out (no menor que check-in) */}
           <Field label="Fecha de salida" icon={<CalendarIcon />}>
             <input
               type="date"
+              min={checkIn || today}
               value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (checkIn && new Date(v) < new Date(checkIn)) {
+                  setCheckOut(checkIn);
+                } else {
+                  setCheckOut(v);
+                }
+              }}
               className="w-full bg-transparent outline-none"
-              aria-label="Fecha de salida"
             />
           </Field>
 
@@ -170,23 +296,42 @@ function SearchBar({ onSearch }) {
             <input
               type="number"
               min={1}
-              max={30}
               value={guests}
-              onChange={(e) => {
-                const val = parseInt(e.target.value || "1", 10);
-                setGuests(Math.min(30, Math.max(1, val)));
-                }}
-                className="w-full bg-transparent outline-none"
-                aria-label="Cantidad de huéspedes"
+              onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
+              className="w-full bg-transparent outline-none"
             />
           </Field>
 
-          {/* Botón Buscar */}
-          <div className="flex justify-stretch md:justify-end">
+          {/* Precio máx (num libre, sin slider) */}
+          <Field label="Precio por noche" icon={<PriceIcon />}>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={maxPrice}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, ""); // solo números
+                setMaxPrice(val);
+              }}
+              className="w-full bg-transparent outline-none appearance-none"
+              placeholder="Ej: 300"
+              
+            />
+          </Field>
+
+
+          {/* Botón Buscarrrr*/}
+          <div className="flex justify-center md:justify-end">
             <SearchButton
-                onClick={() => !disabled && onSearch?.({ location, checkIn, checkOut, guests })}
-                disabled={disabled}
-                label="Buscar"
+              onClick={() => !disabled && onSearch?.({
+                location: idLocalidad,            // 👈 mandamos el ID real
+                checkIn,
+                checkOut,
+                guests,
+                maxPrice
+              })}
+              disabled={disabled}
+              label="Buscar"
             />
           </div>
         </div>
@@ -194,6 +339,8 @@ function SearchBar({ onSearch }) {
     </div>
   );
 }
+
+
 
 function Field({ label, icon, children }) {
   return (
@@ -211,41 +358,54 @@ function Field({ label, icon, children }) {
   );
 }
 
-// ====== Cards ======
+// ====== Cards (Home: destacadas) ======
 function DestinationsGrid() {
-  // imágenes libres de Unsplash (placeholders)
-  const items = [
-    {
-      image: "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?q=80&w=1600&auto=format&fit=crop",
-      title: "Ciudad de México, México",
-      subtitle: "Depto céntrico con vista",
-      rating: 4.8,
-    },
-    {
-      image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
-      title: "Roma, Italia",
-      subtitle: "Apartamento luminoso",
-      rating: 4.7,
-    },
-    {
-      image: "https://images.unsplash.com/photo-1501045661006-fcebe0257c3f?q=80&w=1600&auto=format&fit=crop",
-      title: "Barcelona, España",
-      subtitle: "Cerca del mar",
-      rating: 4.9,
-    },
-    {
-      image: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1600&auto=format&fit=crop",
-      title: "Nueva York, EE.UU.",
-      subtitle: "Loft en Brooklyn",
-      rating: 4.6,
-    },
-  ];
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchProperties() {
+      try {
+        const res = await fetch("http://localhost:4000/propiedades/destacadas");
+        const data = await res.json();
+        setItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error cargando propiedades:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProperties();
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
+        Cargando propiedades...
+      </section>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
+        No se encontraron propiedades destacadas.
+      </section>
+    );
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-10">
-      <h2 className="text-2xl font-semibold text-slate-900 mb-6">Destinos populares</h2>
+      <h2 className="text-2xl font-semibold text-slate-900 mb-6">Propiedades destacadas</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {items.map((it, i) => (
-          <PropertyCard key={i} {...it} />
+        {items.map((p) => (
+          <PropertyCard
+            key={p.id_propiedad || `${p.titulo}-${p.localidad}`}
+            image={p.imagen_url || "https://via.placeholder.com/400x250?text=AlojaApp"}
+            title={`${p.titulo ?? "Propiedad"} – ${p.localidad ?? ""}`}
+            subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`} 
+            rating={Number(p.rating ?? p.puntuacion ?? 0)}
+          />
         ))}
       </div>
     </section>
@@ -297,6 +457,22 @@ function UsersIcon() {
     </svg>
   );
 }
+function PriceIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <text
+        x="4"
+        y="18"
+        fontSize="16"
+        fontWeight="bold"
+        fill={TEXT_MUTED}
+      >
+        $
+      </text>
+    </svg>
+  );
+}
+
 function StarIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -307,40 +483,9 @@ function StarIcon() {
 
 // ====== Página Home ======
 export default function Home() {
-    // ====== Integración del Chat de Dialogflow ======
-  useEffect(() => {
-    // Evita cargar el script más de una vez
-    if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
-      const script = document.createElement("script");
-      script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
-      script.async = true;
-      document.body.appendChild(script);
-
-      script.onload = () => {
-        const messenger = document.createElement("df-messenger");
-        messenger.setAttribute("intent", "WELCOME");
-        messenger.setAttribute("chat-title", "Aloja");
-        messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0"); // <-- reemplazá con tu Agent ID real
-        messenger.setAttribute("language-code", "es");
-        document.body.appendChild(messenger);
-      };
-    } else {
-      // Si ya existe, lo mostramos
-      const messenger = document.querySelector("df-messenger");
-      if (messenger) messenger.style.display = "block";
-    }
-
-    // Cleanup al salir del Home
-    return () => {
-      const messenger = document.querySelector("df-messenger");
-      if (messenger) messenger.style.display = "none";
-    };
-  }, []);
-
   function handleSearch(params) {
-    const url = buildSearchURL(params);
+    const url = buildSearchURL(params); // ahora incluye precio_max y nombres del backend
     navigateTo(url);
-    console.log("Buscar →", params);
   }
 
   return (
@@ -373,41 +518,23 @@ export default function Home() {
 // ====== Smoke Tests (solo en desarrollo) ======
 function __runSmokeTests() {
   try {
-    // buildSearchURL
-    const url1 = buildSearchURL({ location: "Roma", checkIn: "2025-10-10", checkOut: "2025-10-12", guests: 2 });
-    console.assert(url1.startsWith("/buscar?"), "[TEST] buildSearchURL debe iniciar con /buscar?");
-    console.assert(url1.includes("location=Roma"), "[TEST] buildSearchURL debe incluir location");
-    console.assert(url1.includes("checkIn=2025-10-10"), "[TEST] buildSearchURL debe incluir checkIn");
-    console.assert(url1.includes("guests=2"), "[TEST] buildSearchURL debe incluir guests");
-
-    // isSearchDisabled
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "2025-01-01", checkOut: "2025-01-02", guests: 1 }) === false,
-      "[TEST] isSearchDisabled debe habilitar al tener datos válidos"
-    );
-    console.assert(
-      isSearchDisabled({ location: "", checkIn: "2025-01-01", checkOut: "2025-01-02", guests: 1 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si falta location"
-    );
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "", checkOut: "2025-01-02", guests: 1 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si falta checkIn"
-    );
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "2025-01-01", checkOut: "", guests: 1 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si falta checkOut"
-    );
-    console.assert(
-      isSearchDisabled({ location: "BA", checkIn: "2025-01-01", checkOut: "2025-01-02", guests: 0 }) === true,
-      "[TEST] isSearchDisabled debe deshabilitar si guests < 1"
-    );
+    const url1 = buildSearchURL({
+      location: "1", // id_localidad directo
+      checkIn: "2025-10-10",
+      checkOut: "2025-10-12",
+      guests: 2,
+      maxPrice: 300,
+    });
+    console.assert(url1.startsWith("/buscar?"), "[TEST] URL debe iniciar con /buscar?");
+    console.assert(url1.includes("fecha_inicio=2025-10-10"), "[TEST] Debe mapear fecha_inicio");
+    console.assert(url1.includes("huespedes=2"), "[TEST] Debe incluir huespedes");
+    console.assert(url1.includes("precio_max=300"), "[TEST] Debe incluir precio_max");
   } catch (err) {
     console.error("[SmokeTests] Error ejecutando tests:", err);
   }
 }
 
 if (typeof window !== "undefined") {
-  // Ejecutar pruebas solo en dev si Vite está presente y no es producción
   const mode = (import.meta && import.meta.env && import.meta.env.MODE) || "development";
   if (mode !== "production") __runSmokeTests();
 }

@@ -280,7 +280,7 @@ app.get("/propiedades/destacadas", async (req, res) => {
         c.nombre_ciudad AS ciudad,
         pa.nombre_pais AS pais,
         COALESCE(ROUND(AVG(cp.puntuacion),1), 0) AS rating,
-        f.nombre AS imagen_url
+        f.id_url AS imagen_url
       FROM propiedad p
       JOIN localidad l ON p.id_localidad = l.id_localidad
       JOIN ciudad c ON l.id_ciudad = c.id_ciudad
@@ -292,7 +292,7 @@ app.get("/propiedades/destacadas", async (req, res) => {
         l.nombre_localidad, 
         c.nombre_ciudad, 
         pa.nombre_pais,
-        f.nombre
+        f.id_url
       ORDER BY rating DESC
       LIMIT 8
     `);
@@ -403,6 +403,7 @@ app.get('/localidades/search', async (req, res) => {
     const result = await pool.query(
       `
       SELECT 
+        l.id_localidad,
         l.nombre_localidad AS localidad,
         c.nombre_ciudad AS ciudad,
         p.nombre_pais AS pais
@@ -422,6 +423,7 @@ app.get('/localidades/search', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 
 
