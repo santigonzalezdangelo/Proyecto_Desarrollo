@@ -16,11 +16,12 @@ export default function Reserva() {
   });
   const [loading, setLoading] = useState(true);
   const [calculando, setCalculando] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0); // 🖼️ índice del carrusel
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id") || 1;
 
-    // 🧱 MOCK con anfitrión + reseña
+    // 🧱 MOCK con anfitrión, reseña y varias fotos
     const mockPropiedad = {
       id_propiedad: id,
       nombre_de_fantasia: "Obelisco View Apartment",
@@ -35,6 +36,14 @@ export default function Reserva() {
         {
           id_url: 1,
           nombre: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200",
+        },
+        {
+          id_url: 2,
+          nombre: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1200",
+        },
+        {
+          id_url: 3,
+          nombre: "https://images.unsplash.com/photo-1505691938895-1758d7feb512?w=1200",
         },
       ],
       anfitrion: {
@@ -100,54 +109,95 @@ export default function Reserva() {
   }, []);
 
   async function handleCalcular() {
-  if (!form.fecha_inicio || !form.fecha_fin) {
-    alert("Por favor, seleccioná ambas fechas.");
-    return;
+    if (!form.fecha_inicio || !form.fecha_fin) {
+      alert("Por favor, seleccioná ambas fechas.");
+      return;
+    }
+
+    const inicio = new Date(form.fecha_inicio);
+    const fin = new Date(form.fecha_fin);
+
+    if (fin <= inicio) {
+      alert("La fecha de fin debe ser posterior a la fecha de inicio.");
+      return;
+    }
+
+    setCalculando(true);
+    const dias = Math.ceil(Math.abs(fin - inicio) / (1000 * 60 * 60 * 24));
+    const precioTotal = dias * (propiedad?.precio_por_noche || 0);
+    setTimeout(() => {
+      setForm((f) => ({ ...f, precio_total: precioTotal }));
+      setCalculando(false);
+    }, 300);
   }
-
-  const inicio = new Date(form.fecha_inicio);
-  const fin = new Date(form.fecha_fin);
-
-  // 🧩 Validación: la fecha de fin debe ser posterior a la de inicio
-  if (fin <= inicio) {
-    alert("La fecha de fin debe ser posterior a la fecha de inicio.");
-    return;
-  }
-
-  setCalculando(true);
-
-  const dias = Math.ceil(Math.abs(fin - inicio) / (1000 * 60 * 60 * 24));
-  const precioTotal = dias * (propiedad?.precio_por_noche || 0);
-
-  setTimeout(() => {
-    setForm((f) => ({ ...f, precio_total: precioTotal }));
-    setCalculando(false);
-  }, 300);
-}
-
 
   if (loading) return <p className="p-8 text-center">Cargando...</p>;
 
-  const comentario = propiedad.calificaciones?.[0]; // mostramos solo uno
+  const comentario = propiedad.calificaciones?.[0];
 
   return (
     <div className="min-h-screen bg-[#FFF6DB] pb-10">
       <Navbar active="inicio" />
-        <div className="pt-[70px]"> {/* ajusta la altura del navbar */}
-          <header
-            className="p-6 text-[#0F172A] font-bold text-xl"
-            style={{ backgroundColor: "#F8C24D" }}
-          >
-            <div className="max-w-6xl mx-auto">{propiedad.nombre_de_fantasia}</div>
-          </header>
+      <div className="pt-[70px]">
+        <header
+          className="p-6 text-[#0F172A] font-bold text-xl"
+          style={{ backgroundColor: "#F8C24D" }}
+        >
+          <div className="max-w-6xl mx-auto">{propiedad.nombre_de_fantasia}</div>
+        </header>
+
         {/* 🏡 descripción + reserva */}
         <main className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-10">
+          {/* IZQUIERDA: CARRUSEL */}
           <section className="flex flex-col gap-4">
-            <img
-              src={propiedad.fotos?.[0]?.nombre}
-              alt={propiedad.nombre_de_fantasia}
-              className="rounded-2xl shadow-lg w-full h-auto"
-            />
+            {/* 🖼️ Carrusel de fotos */}
+            <div className="relative w-full rounded-2xl overflow-hidden shadow-lg">
+              <img
+                src={propiedad.fotos?.[currentIndex]?.nombre}
+                alt={`Foto ${currentIndex + 1} de ${propiedad.nombre_de_fantasia}`}
+                className="w-full h-auto object-cover rounded-2xl transition-all duration-500"
+              />
+
+              {/* Flecha izquierda */}
+              <button
+                onClick={() =>
+                  setCurrentIndex((prev) =>
+                    prev === 0 ? propiedad.fotos.length - 1 : prev - 1
+                  )
+                }
+                className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-[#0F172A] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all"
+                aria-label="Foto anterior"
+              >
+                ‹
+              </button>
+
+              {/* Flecha derecha */}
+              <button
+                onClick={() =>
+                  setCurrentIndex((prev) =>
+                    prev === propiedad.fotos.length - 1 ? 0 : prev + 1
+                  )
+                }
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-[#0F172A] rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all"
+                aria-label="Foto siguiente"
+              >
+                ›
+              </button>
+
+              {/* Indicadores inferiores */}
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                {propiedad.fotos.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      i === currentIndex ? "bg-white" : "bg-white/50"
+                    }`}
+                  ></span>
+                ))}
+              </div>
+            </div>
+
+            {/* Descripción */}
             <h2 className="text-2xl font-bold mt-2">{propiedad.descripcion}</h2>
             <p className="text-slate-700">
               {propiedad.localidad}, {propiedad.ciudad}, {propiedad.pais}
@@ -155,6 +205,7 @@ export default function Reserva() {
             <p className="font-semibold">💰 ${propiedad.precio_por_noche} por noche</p>
           </section>
 
+          {/* DERECHA: FORMULARIO */}
           <section className="bg-white p-6 rounded-2xl shadow-lg flex flex-col gap-4 self-start">
             <h3 className="text-xl font-semibold">Reservar tu estadía</h3>
 
@@ -175,6 +226,7 @@ export default function Reserva() {
               <input
                 type="date"
                 value={form.fecha_fin}
+                min={form.fecha_inicio || undefined}
                 onChange={(e) =>
                   setForm({ ...form, fecha_fin: e.target.value })
                 }
