@@ -16,11 +16,71 @@ export default function Reserva() {
   });
   const [loading, setLoading] = useState(true);
   const [calculando, setCalculando] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id") || 1;
 
+    // 🧱 MOCK con anfitrión + reseña
+    const mockPropiedad = {
+      id_propiedad: id,
+      nombre_de_fantasia: "Obelisco View Apartment",
+      descripcion: "Moderno departamento frente al Obelisco con vistas panorámicas.",
+      precio_por_noche: 95,
+      localidad: "Buenos Aires",
+      ciudad: "CABA",
+      pais: "Argentina",
+      latitud: -34.6037,
+      longitud: -58.3816,
+      fotos: [
+        {
+          id_url: 1,
+          nombre: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200",
+        },
+      ],
+      anfitrion: {
+        nombre: "María Agustina",
+        foto: "https://randomuser.me/api/portraits/women/68.jpg",
+        puntuacion: 4.92,
+        evaluaciones: 25,
+        años: 6,
+      },
+      calificaciones: [
+        {
+          id_calificacion: 1,
+          nombre_huesped: "Lucía Fernández",
+          puntuacion: 5,
+          comentario:
+            "Excelente ubicación y limpieza impecable. María fue muy amable y respondió rápido a todo.",
+          fecha: "2024-09-10",
+        },
+      ],
+    };
+
+    const mockRecomendadas = [
+      {
+        id_propiedad: 101,
+        imagen_url: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?w=800",
+        titulo: "Loft en Palermo",
+        subtitulo: "Cerca del subte, ideal para parejas",
+        rating: 4.7,
+      },
+      {
+        id_propiedad: 102,
+        imagen_url: "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?w=800",
+        titulo: "Casa en Bariloche",
+        subtitulo: "Vista al lago Nahuel Huapi",
+        rating: 4.9,
+      },
+    ];
+
+    setTimeout(() => {
+      setPropiedad(mockPropiedad);
+      setRecomendadas(mockRecomendadas);
+      setLoading(false);
+    }, 400);
+
+    /*
+    🔌 CONEXIÓN REAL (DESCOMENTAR CUANDO EL BACKEND FUNCIONE)
     async function fetchData() {
       try {
         // 🔹 Propiedad actual
@@ -50,78 +110,50 @@ export default function Reserva() {
       return;
     }
 
-    setCalculando(true);
-    try {
-      const res = await fetch(
-        `${API_URL}/propiedades/precio?id_propiedad=${propiedad.id_propiedad}&fecha_inicio=${form.fecha_inicio}&fecha_fin=${form.fecha_fin}`
-      );
-      const data = await res.json();
+  const inicio = new Date(form.fecha_inicio);
+  const fin = new Date(form.fecha_fin);
 
-      if (res.ok) {
-        setForm((f) => ({ ...f, precio_total: data.precio_total }));
-      } else {
-        alert(data.error || "Error al calcular precio");
-      }
-    } catch (err) {
-      console.error("Error al calcular precio:", err);
-      alert("Error al calcular el precio.");
-    } finally {
-      setCalculando(false);
-    }
+  // 🧩 Validación: la fecha de fin debe ser posterior a la de inicio
+  if (fin <= inicio) {
+    alert("La fecha de fin debe ser posterior a la fecha de inicio.");
+    return;
   }
 
+  setCalculando(true);
+
+  const dias = Math.ceil(Math.abs(fin - inicio) / (1000 * 60 * 60 * 24));
+  const precioTotal = dias * (propiedad?.precio_por_noche || 0);
+
+  setTimeout(() => {
+    setForm((f) => ({ ...f, precio_total: precioTotal }));
+    setCalculando(false);
+  }, 300);
+}
+
+
   if (loading) return <p className="p-8 text-center">Cargando...</p>;
-  if (!propiedad) return <p className="p-8 text-center">Propiedad no encontrada.</p>;
+
+  const comentario = propiedad.calificaciones?.[0]; // mostramos solo uno
 
   return (
     <div className="min-h-screen bg-[#FFF6DB] pb-10">
       <Navbar active="inicio" />
-      <div className="pt-[70px]">
-        <header
-          className="p-6 text-[#0F172A] font-bold text-xl"
-          style={{ backgroundColor: "#F8C24D" }}
-        >
-          <div className="max-w-6xl mx-auto">{propiedad.nombre_de_fantasia || "Propiedad"}</div>
-        </header>
-
+        <div className="pt-[70px]"> {/* ajusta la altura del navbar */}
+          <header
+            className="p-6 text-[#0F172A] font-bold text-xl"
+            style={{ backgroundColor: "#F8C24D" }}
+          >
+            <div className="max-w-6xl mx-auto">{propiedad.nombre_de_fantasia}</div>
+          </header>
         {/* 🏡 descripción + reserva */}
         <main className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-10">
           {/* IZQUIERDA: CARRUSEL */}
           <section className="flex flex-col gap-4">
-            {/* 🖼️ Carrusel */}
-            <div className="relative w-full rounded-2xl overflow-hidden shadow-lg">
-              <img
-                src={
-                  propiedad.fotos?.[currentIndex]?.url_foto ||
-                  "https://via.placeholder.com/1200x800?text=Imagen+no+disponible"
-                }
-                alt={`Foto ${currentIndex + 1}`}
-                className="w-full h-auto object-cover rounded-2xl transition-all duration-500"
-              />
-
-              {/* Flechas */}
-              <button
-                onClick={() =>
-                  setCurrentIndex((prev) =>
-                    prev === 0 ? propiedad.fotos.length - 1 : prev - 1
-                  )
-                }
-                className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-[#0F172A] rounded-full w-10 h-10 flex items-center justify-center shadow-md"
-              >
-                ‹
-              </button>
-              <button
-                onClick={() =>
-                  setCurrentIndex((prev) =>
-                    prev === propiedad.fotos.length - 1 ? 0 : prev + 1
-                  )
-                }
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-[#0F172A] rounded-full w-10 h-10 flex items-center justify-center shadow-md"
-              >
-                ›
-              </button>
-            </div>
-
+            <img
+              src={propiedad.fotos?.[0]?.nombre}
+              alt={propiedad.nombre_de_fantasia}
+              className="rounded-2xl shadow-lg w-full h-auto"
+            />
             <h2 className="text-2xl font-bold mt-2">{propiedad.descripcion}</h2>
             <p className="text-slate-700">
               {propiedad.localidad}, {propiedad.ciudad}, {propiedad.pais}
@@ -159,8 +191,9 @@ export default function Reserva() {
               <input
                 type="date"
                 value={form.fecha_fin}
-                min={form.fecha_inicio || undefined}
-                onChange={(e) => setForm({ ...form, fecha_fin: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, fecha_fin: e.target.value })
+                }
                 className="border rounded px-3 py-2"
               />
             </label>
