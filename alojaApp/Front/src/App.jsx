@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import Home from "./pages/home.jsx";      // si tu archivo se llama 'home.jsx'
-import Login from "./pages/login.jsx";
+import Login from "./pages/Login.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Search from "./pages/search.jsx";  // importa el componente Search (export default)
@@ -12,7 +12,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/buscar" element={<Search />} />   {/* <-- FIX */}
-      <Route path="/propiedades-encontradas" element={<PropiedadesEncontradas />} />
+      
       <Route
         path="/profile"
         element={
