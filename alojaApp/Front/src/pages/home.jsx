@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect} from "react";
 import SearchButton from "../components/SearchButton";
 import PropertyCard from "../components/PropertyCard";
 
@@ -29,6 +29,20 @@ const TEXT_DARK = "#0F172A";
 const TEXT_MUTED = "#334155";
 const CARD_BG = "#FFFFFF";
 const PAGE_BG = PRIMARY;
+
+// Alturas para controlar “fusión” con Navbar
+const NAV_HEIGHT = 72;        // alto visible de tu navbar
+const HERO_ANCHOR_TOP = 130;  // top cuando está grande en el héroe
+const NAV_Z = 90;             // z-index del navbar 
+
+// ==== Ajustes de sticky/compact ====
+const STICKY_GAP = 6;                 // línea amarilla visible arriba y abajo (px)
+const HERO_EXTRA_H = 20;              // alto extra cuando está grande en el héroe
+const COMPACT_HEIGHT = NAV_HEIGHT - STICKY_GAP * 2; // altura del contenedor cuando “pega” al navbar
+// Cuánto queremos “meter” la barra dentro del navbar (puede ser 0)
+const NAV_OVERLAY_OFFSET = 0; // probá 0, 2 o -2 si querés subir/bajar 2px
+
+
 
 // ====== Helpers ======
 function classNames(...xs) {
@@ -88,13 +102,11 @@ function Navbar({ active = "inicio" }) {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full shadow-md"
-      style={{
-        backgroundColor: "#F5DCA1",
-        color: TEXT_DARK,
-      }}
+      className="fixed top-0 left-0 right-0 z-[90] w-full shadow-md"
+      style={{ height: "72px", backgroundColor: "#F5DCA1", color: TEXT_DARK }}
       aria-label="Barra de navegación"
     >
+
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
@@ -141,10 +153,10 @@ function debounce(fn, wait = 300) {
 }
 
 // ====== Search Bar ======
-function SearchBar({ onSearch }) {
-  const [locationText, setLocationText] = useState("");     // lo que escribe el usuario
-  const [idLocalidad, setIdLocalidad] = useState("");       // el ID real seleccionado
-  const [sugs, setSugs] = useState([]);                     // sugerencias
+function SearchBar({ onSearch, anchorRef }) {
+  const [locationText, setLocationText] = useState("");
+  const [idLocalidad, setIdLocalidad] = useState("");
+  const [sugs, setSugs] = useState([]);
   const [openSugs, setOpenSugs] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
 
@@ -153,10 +165,44 @@ function SearchBar({ onSearch }) {
   const [guests, setGuests] = useState(1);
   const [maxPrice, setMaxPrice] = useState("");
 
-  // hoy como mínimo para check-in (opcional)
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Validación: deshabilitar si faltan campos o si checkOut < checkIn
+  // Posición real del ancla (debajo del título)
+  const [anchorTop, setAnchorTop] = useState(HERO_ANCHOR_TOP);
+  useLayoutEffect(() => {
+    const update = () => {
+      const el = anchorRef?.current;
+      if (!el) return;
+      const y = el.getBoundingClientRect().top + window.scrollY;
+      setAnchorTop(y);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [anchorRef]);
+
+  // Progreso 0→1 desde el ancla hasta el navbar (suaviza/escala)
+  const [progress, setProgress] = useState(0);
+  const compact = progress > 0.5;
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const travel = Math.max(1, anchorTop);
+          const p = Math.min(1, Math.max(0, window.scrollY / travel));
+          setProgress(p);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [anchorTop]);
+
+  // Validaciones
   const disabled = useMemo(() => {
     if (!idLocalidad || !checkIn || !checkOut) return true;
     if (new Date(checkOut) < new Date(checkIn)) return true;
@@ -164,45 +210,50 @@ function SearchBar({ onSearch }) {
     return !(Number.isFinite(g) && g >= 1);
   }, [idLocalidad, checkIn, checkOut, guests]);
 
-  // Mantener coherencia: si usuario baja checkOut por debajo de checkIn, corrige
   useEffect(() => {
     if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) {
       setCheckOut(checkIn);
     }
   }, [checkIn, checkOut]);
 
-  // Buscar sugerencias con debounce mientras escribe
-  const fetchSugs = useMemo(() => debounce(async (q) => {
-    if (!q || q.trim().length < 1) { setSugs([]); setOpenSugs(false); return; }
-    try {
-      const res = await fetch(`http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      setSugs(Array.isArray(data) ? data : []);
-      setOpenSugs(true);
-      setActiveIdx(-1);
-    } catch (e) {
-      console.error("Autocomplete error:", e);
-      setSugs([]);
-      setOpenSugs(false);
-    }
-  }, 250), []);
+  // Autocomplete (debounce)
+  const fetchSugs = useMemo(
+    () =>
+      debounce(async (q) => {
+        if (!q || q.trim().length < 1) {
+          setSugs([]);
+          setOpenSugs(false);
+          return;
+        }
+        try {
+          const res = await fetch(
+            `http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`
+          );
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          setSugs(Array.isArray(data) ? data : []);
+          setOpenSugs(true);
+          setActiveIdx(-1);
+        } catch (e) {
+          console.error("Autocomplete error:", e);
+          setSugs([]);
+          setOpenSugs(false);
+        }
+      }, 250),
+    []
+  );
 
-  // Cada letra actualiza y dispara el debounce
   function handleLocationChange(e) {
     const val = e.target.value;
     setLocationText(val);
-    setIdLocalidad("");    // invalida selección previa
+    setIdLocalidad("");
     fetchSugs(val);
   }
-
   function selectSuggestion(s) {
-    // Mostramos texto bonito y guardamos el ID real
     setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`);
     setIdLocalidad(String(s.id_localidad));
     setOpenSugs(false);
   }
-
   function handleKeyDown(e) {
     if (!openSugs || sugs.length === 0) return;
     if (e.key === "ArrowDown") {
@@ -220,143 +271,243 @@ function SearchBar({ onSearch }) {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto" role="search" aria-label="Buscador de alojamientos">
+    <>
       <div
-        className="rounded-2xl shadow-xl p-4 md:p-5"
-        style={{ backgroundColor: CARD_BG, border: "1px solid rgba(0,0,0,0.05)" }}
+        role="search"
+        aria-label="Buscador de alojamientos"
+        className="w-full"
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          // Queda centrada “sobre” el navbar con una línea amarilla arriba y abajo
+          top: `${Math.max(
+            anchorTop - window.scrollY,
+            Math.max(0, (NAV_HEIGHT - COMPACT_HEIGHT) / 2 + NAV_OVERLAY_OFFSET)
+          )}px`,
+          zIndex: 100,
+          background: "transparent",
+          willChange: "transform, top",
+          transition: "top 240ms cubic-bezier(0.22,0.61,0.36,1)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: `${
+            COMPACT_HEIGHT + (NAV_HEIGHT + HERO_EXTRA_H - COMPACT_HEIGHT) * (1 - progress)
+          }px`,
+          paddingInline: 12, // márgenes laterales iguales
+        }}
       >
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-          {/* Ubicación + Autocomplete */}
-          <div className="relative md:col-span-2">
-            <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
-              <input
-                value={locationText}
-                onChange={handleLocationChange}
-                onKeyDown={handleKeyDown}
-                onFocus={() => sugs.length && setOpenSugs(true)}
-                placeholder="Localidad (ej.: Centro, Palermo...)"
-                className="w-full bg-transparent outline-none"
-                aria-label="Destino"
-              />
-            </Field>
+        <div
+          className="mx-auto"
+          style={{
+            transform: `scale(${1 - 0.20 * progress})`,
+            transition: "transform 240ms cubic-bezier(0.22,0.61,0.36,1)",
+            transformOrigin: "center center",
+            // Ancho con márgenes simétricos SIEMPRE
+            width: "min(1160px, calc(100% - 56px))",
+          }}
+        >
+          <div
+            className="border searchbar-panel"
+            style={{
+              backgroundColor: "#fff",
+              borderColor: "rgba(0,0,0,0.06)",
+              borderRadius: `${14 - 6 * progress}px`,
+              padding: `${12 - 4 * progress}px ${14 - 4 * progress}px`,
+              boxShadow:
+                progress < 0.5
+                  ? "0 6px 20px rgba(0,0,0,0.12)"
+                  : "0 3px 12px rgba(0,0,0,0.10)",
+              transition:
+                "border-radius 240ms cubic-bezier(0.22,0.61,0.36,1), padding 240ms cubic-bezier(0.22,0.61,0.36,1), box-shadow 240ms cubic-bezier(0.22,0.61,0.36,1)",
+              overflow: "hidden", // nada se sale del panel blanco
+            }}
+          >
+            {/* 👉 Ajuste de los inputs date para que el ícono no sobresalga */}
+            <style>{`
+              .searchbar-panel input[type="date"] {
+                padding-right: 10px;
+                line-height: 1.2;
+              }
+              .searchbar-panel input[type="date"]::-webkit-calendar-picker-indicator {
+                margin-right: 10px;
+                opacity: 0.85;
+              }
+            `}</style>
 
-            {openSugs && sugs.length > 0 && (
-              <ul
-                className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md"
-                role="listbox"
-              >
-                {sugs.map((s, idx) => (
-                  <li
-                    key={s.id_localidad}
-                    role="option"
-                    aria-selected={activeIdx === idx}
-                    className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
-                    onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                    onMouseEnter={() => setActiveIdx(idx)}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "minmax(260px, 3fr) minmax(170px, 2fr) minmax(170px, 2fr) minmax(140px, 2fr) minmax(180px, 2fr) auto",
+                columnGap: `${12 + 6 * (1 - progress)}px`,
+                alignItems: "stretch",
+                paddingInline: "6px",
+              }}
+            >
+              {/* Ubicación */}
+              <div className="relative min-w-0">
+                <Field label="¿A dónde vas?" icon={<MapPinIcon />} compact={compact}>
+                  <input
+                    value={locationText}
+                    onChange={handleLocationChange}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => sugs.length && setOpenSugs(true)}
+                    placeholder="Localidad (ej.: Centro, Palermo...)"
+                    className="w-full bg-transparent outline-none"
+                    aria-label="Destino"
+                  />
+                </Field>
+                {openSugs && sugs.length > 0 && (
+                  <ul
+                    className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md"
+                    role="listbox"
                   >
-                    <div className="text-sm font-medium">{s.localidad}</div>
-                    <div className="text-xs text-slate-600">{s.ciudad}, {s.pais}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    {sugs.map((s, idx) => (
+                      <li
+                        key={s.id_localidad}
+                        role="option"
+                        aria-selected={activeIdx === idx}
+                        className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
+                        onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                        onMouseEnter={() => setActiveIdx(idx)}
+                      >
+                        <div className="text-sm font-medium">{s.localidad}</div>
+                        <div className="text-xs text-slate-600">{s.ciudad}, {s.pais}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-          {/* Check-in */}
-          <Field label="Fecha de llegada" icon={<CalendarIcon />}>
-            <input
-              type="date"
-              min={today}
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
+              {/* Llegada */}
+              <div className="min-w-0">
+                <Field label="Fecha de llegada" icon={<CalendarIcon />} compact={compact}>
+                  <input
+                    type="date"
+                    min={today}
+                    value={checkIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
+                    className="w-full bg-transparent outline-none"
+                  />
+                </Field>
+              </div>
 
-          {/* Check-out (no menor que check-in) */}
-          <Field label="Fecha de salida" icon={<CalendarIcon />}>
-            <input
-              type="date"
-              min={checkIn || today}
-              value={checkOut}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (checkIn && new Date(v) < new Date(checkIn)) {
-                  setCheckOut(checkIn);
-                } else {
-                  setCheckOut(v);
-                }
-              }}
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
+              {/* Salida */}
+              <div className="min-w-0">
+                <Field label="Fecha de salida" icon={<CalendarIcon />} compact={compact}>
+                  <input
+                    type="date"
+                    min={checkIn || today}
+                    value={checkOut}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (checkIn && new Date(v) < new Date(checkIn)) setCheckOut(checkIn);
+                      else setCheckOut(v);
+                    }}
+                    className="w-full bg-transparent outline-none"
+                  />
+                </Field>
+              </div>
 
-          {/* Huéspedes */}
-          <Field label="Huéspedes" icon={<UsersIcon />}>
-            <input
-              type="number"
-              min={1}
-              value={guests}
-              onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
+              {/* Huéspedes */}
+              <div className="min-w-0">
+                <Field label="Huéspedes" icon={<UsersIcon />} compact={compact}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={guests}
+                    onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
+                    className="w-full bg-transparent outline-none"
+                  />
+                </Field>
+              </div>
 
-          {/* Precio máx (num libre, sin slider) */}
-          <Field label="Precio por noche" icon={<PriceIcon />}>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={maxPrice}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, ""); // solo números
-                setMaxPrice(val);
-              }}
-              className="w-full bg-transparent outline-none appearance-none"
-              placeholder="Ej: 300"
-              
-            />
-          </Field>
+              {/* Precio */}
+              <div className="min-w-0">
+                <Field label="Precio por noche" icon={<PriceIcon />} compact={compact}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={maxPrice}
+                    onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
+                    className="w-full bg-transparent outline-none appearance-none"
+                    placeholder="Ej: 300"
+                  />
+                </Field>
+              </div>
 
-
-          {/* Botón Buscarrrr*/}
-          <div className="flex justify-center md:justify-end">
-            <SearchButton
-              onClick={() => !disabled && onSearch?.({
-                location: idLocalidad,            // 👈 mandamos el ID real
-                checkIn,
-                checkOut,
-                guests,
-                maxPrice
-              })}
-              disabled={disabled}
-              label="Buscar"
-            />
+              {/* Botón */}
+              <div className="min-w-0 flex items-stretch">
+                <SearchButton
+                  onClick={() =>
+                    !disabled &&
+                    onSearch?.({ location: idLocalidad, checkIn, checkOut, guests, maxPrice })
+                  }
+                  disabled={disabled}
+                  label="Buscar"
+                  className={compact ? "text-sm" : "text-base"}
+                  style={{
+                    width: "100%",
+                    borderRadius: "12px",
+                    border: "none",
+                    backgroundColor: "#F8C24D",
+                    color: "#4B4B4B",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "background-color 0.2s ease",
+                    minHeight: compact ? "44px" : "52px",
+                  }}
+                  onMouseEnter={(e) => (e.target.style.backgroundColor = "#f6b818")}
+                  onMouseLeave={(e) => (e.target.style.backgroundColor = "#F8C24D")}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Spacer para que el contenido no salte cuando la barra está fija */}
+      <div style={{ height: `${NAV_HEIGHT + (20 * (1 - progress))}px` }} />
+    </>
   );
 }
 
 
 
-function Field({ label, icon, children }) {
+function Field({ label, icon, children, compact = false }) {
   return (
-    <label className="flex items-center gap-2 rounded-xl border border-black/5 bg-white px-3 py-3">
+    <label
+      className={
+        "flex h-full items-center gap-2 rounded-xl border border-black/5 bg-white " +
+        (compact ? "px-2.5 py-2" : "px-3 py-3")
+      }
+    >
+
+
       <span className="shrink-0 opacity-70" aria-hidden>
         {icon}
       </span>
       <div className="flex flex-col w-full">
-        <span className="text-xs uppercase tracking-wide opacity-60" style={{ color: TEXT_MUTED }}>
+        <span
+          className={
+            "uppercase tracking-wide opacity-60 " +
+            (compact ? "text-[10px]" : "text-xs")
+          }
+          style={{ color: TEXT_MUTED }}
+        >
           {label}
         </span>
-        {children}
+        <div className={compact ? "text-sm" : "text-base"}>
+          {children}
+        </div>
       </div>
     </label>
   );
 }
+
 
 // ====== Cards (Home: destacadas) ======
 function DestinationsGrid() {
@@ -485,6 +636,7 @@ function StarIcon() {
 // arriba del archivo: // suma useEffect si no estaba
 
 export default function Home() {
+  const searchAnchorRef = useRef(null);
   // ⬇ Chat Dialogflow dentro del componente (no afuera)
   useEffect(() => {
     // evita inyectar dos veces en dev/StrictMode
@@ -531,8 +683,8 @@ export default function Home() {
     navigateTo(url);
   }
 
-  return (
-    <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh" }}>
+return (
+    <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh", paddingTop: `${NAV_HEIGHT + 16}px` }}>
       <Navbar active="inicio" />
       {/* ...tu contenido tal cual... */}
       <section className="mx-auto max-w-7xl px-4 pt-10 pb-8">
@@ -542,9 +694,13 @@ export default function Home() {
         <p className="mt-3 text-lg max-w-2xl" style={{ color: TEXT_MUTED }}>
           Explorá los mejores lugares para hospedarte. Inspirado en experiencias de Airbnb y Booking.
         </p>
+        {/* Ancla: lugar donde “descansa” la SearchBar grande */}
+        <div ref={searchAnchorRef} />
+
         <div className="mt-6">
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} anchorRef={searchAnchorRef} />
         </div>
+
       </section>
 
       <div className="rounded-t-[28px]" style={{ backgroundColor: "#FFF6DB" }}>
@@ -552,8 +708,9 @@ export default function Home() {
       </div>
 
       <Footer />
-    </div>
-  );
+    </div>
+);
+
 }
 
 // ====== Smoke Tests (solo en desarrollo) ======
