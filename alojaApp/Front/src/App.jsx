@@ -4,7 +4,12 @@ import Login from "./pages/Login.jsx";
 import AdministrarPropiedades from "./pages/administrarPropiedades.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+<<<<<<< HEAD
 import Search from "./pages/search.jsx";
+=======
+import Search from "./pages/search.jsx";  // importa el componente Search (export default)
+import PropiedadesEncontradas from "./pages/propiedades-encontradas.jsx";
+>>>>>>> origin
 
 export default function App() {
   return (
