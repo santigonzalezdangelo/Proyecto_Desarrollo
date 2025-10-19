@@ -6,22 +6,24 @@ class StateDAO extends PostgresDAO {
     super(stateModel);
   } 
 
-  createState = async (stateData) => {
+
+    createState = async (stateData) => {
     try {
-      const newState = await this.model.create(stateData);
-      return newState;
+        const newState = await this.model.create(stateData);
+        return newState;
     } catch (error) {
-      console.error("Error creating state:", error);
-      throw new Error(error);
+        console.error("Error creating state:", error); // mantiene error.errors[]
+        throw error; // <<-- importante
     }
-  };
+    };
+
 
     getStateById = async (id_estado) => {
     try {
       return await this.model.findOne({ where: { id_estado } });
     } catch (error) {
       console.error("Error fetching state by id:", error);
-      throw new Error(error);
+      throw(error);
     }
   };
 }
