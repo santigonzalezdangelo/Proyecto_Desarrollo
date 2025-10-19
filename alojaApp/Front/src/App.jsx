@@ -16,6 +16,11 @@ export default function App() {
       <Route path="/buscar" element={<Search />} />   {/* <-- FIX */}
       <Route path="/reservas" element={<Reservas />} />
       <Route path="/register" element={<Register />} />
+
+      <Route
+          path="/propiedades-encontradas"
+          element={<PropiedadesEncontradas />} />
+
       <Route
         path="/profile"
         element={
