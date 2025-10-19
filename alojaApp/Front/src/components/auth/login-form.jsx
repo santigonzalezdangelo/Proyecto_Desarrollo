@@ -151,7 +151,7 @@ export default function Login() {
     setLoading(true);
     setMsg("");
     try {
-      const r = await fetch(`${API_URL}/api/auth/login`, {
+      const r = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         credentials: "include",
