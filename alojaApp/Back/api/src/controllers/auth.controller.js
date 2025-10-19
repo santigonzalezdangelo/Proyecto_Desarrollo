@@ -123,17 +123,14 @@ class AuthController {
      * - Limpia la cookie del JWT
      */
     logout = async (req, res) => {
-
-    try {
-
-      res.clearCookie("aloja_jwt");
-      return res.json({ message: "Logout correcto" });
-    } catch (err) {
-      console.error("Logout error:", err);
-      return res.status(500).json({ error: "Error interno" });
-    }
-
-  };
+  try {
+    clearAuthCookie(res);           // <-- borra con flags correctos
+    return res.status(200).json({ message: "Logout correcto" });
+  } catch (err) {
+    console.error("Logout error:", err);
+    return res.status(500).json({ error: "Error interno" });
+  }
+};
   current = (req, res) => {
   const { id_usuario, id_rol } = req.user || {};
   if (!id_usuario) return res.status(401).json({ error: "No autenticado" });
