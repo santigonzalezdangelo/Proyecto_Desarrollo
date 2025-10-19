@@ -3,51 +3,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import PropertyCard from "../components/PropertyCard"; // <- tu componente
 import { Link, useSearchParams } from "react-router-dom";
 
+// ✅ Base de la API (usa variable de entorno si existe)
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:4000/api";
 
-/* ===============================
-   MOCK mientras el backend no está
-   =============================== */
-const MOCK = [
-  {
-    id_propiedad: 101,
-    titulo: "LP Microcentro – Balcón y Luz",
-    localidad: "Centro",
-    ciudad: "La Plata",
-    pais: "Argentina",
-    rating: 4.8,
-    imagen_url:
-      "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?q=80&w=1600&auto=format&fit=crop",
-    precio_por_noche: 25000,
-    huespedes: 3,
-    tipo: "Departamento",
-  },
-  {
-    id_propiedad: 102,
-    titulo: "Depto Ideal Parejas",
-    localidad: "Centro",
-    ciudad: "La Plata",
-    pais: "Argentina",
-    rating: 4.6,
-    imagen_url:
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
-    precio_por_noche: 22000,
-    huespedes: 2,
-    tipo: "Departamento",
-  },
-  {
-    id_propiedad: 103,
-    titulo: "Loft luminoso",
-    localidad: "Gonnet",
-    ciudad: "La Plata",
-    pais: "Argentina",
-    rating: 4.9,
-    imagen_url:
-      "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1600&auto=format&fit=crop",
-    precio_por_noche: 28000,
-    huespedes: 2,
-    tipo: "Loft",
-  },
-];
 
 /* ===============================
    Colores de tu app
@@ -296,40 +254,57 @@ useEffect(() => {
   };
 
   // cargar lista (mock por ahora)
-  useEffect(() => {
-    let cancelled = false;
+// cargar lista desde el backend (con fallback al MOCK si falla)
+useEffect(() => {
+  const ctrl = new AbortController();
 
-    (async () => {
-      /* ===============================
-         AQUÍ VA TU ENDPOINT REAL:
-         
+  (async () => {
+    try {
+      // Armamos los query params solo con valores definidos/no vacíos
       const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(filtros).filter(([_,v]) => v !== undefined && v !== ""))
+        Object.fromEntries(
+          Object.entries(filtros).filter(
+            ([, v]) => v !== undefined && v !== null && String(v).trim() !== ""
+          )
+        )
       );
-      const res = await fetch(`http://localhost:4000/propiedades/disponibles?${qs}`);
+
+      const url = `${API_BASE}/api/properties/available?${qs.toString()}`;
+      const res = await fetch(url, { signal: ctrl.signal });
+
+      if (!res.ok) {
+        console.warn("[propiedades] Respuesta no OK:", res.status);
+        setList(MOCK); // fallback si el backend devuelve 4xx/5xx
+        return;
+      }
+
       const data = await res.json();
-      if (!cancelled) setList(data);
-         =============================== */
 
-      // MOCK (filtrado básico)
-      const filtered = MOCK.filter((p) => {
-        if (filtros.precio_max && p.precio_por_noche > Number(filtros.precio_max))
-          return false;
-        if (filtros.huespedes && p.huespedes < Number(filtros.huespedes))
-          return false;
-        if (filtros.id_localidad && String(filtros.id_localidad) !== "1")
-          return true; // demo: no frenamos si no coincide (porque no tenemos ids reales en mock)
-        if (filtros.localidad && !p.localidad?.toLowerCase().includes(String(filtros.localidad).toLowerCase()))
-          return false;
-        return true;
-      });
-      if (!cancelled) setList(filtered);
-    })();
+      // Normalizamos por si tu API no devuelve imagen_url directo
+      // (ej: si viene fotos: [{ url_foto }], tomamos la primera)
+      const normalizados = (Array.isArray(data) ? data : []).map((p) => ({
+        ...p,
+        imagen_url:
+          p.imagen_url ||
+          p.url_foto ||
+          p.foto?.nombre ||
+          p.fotos?.[0]?.url_foto ||
+          p.fotos?.[0]?.nombre ||
+          p.foto_url, // por si tenés otro alias
+      }));
 
-    return () => {
-      cancelled = true;
-    };
-  }, [filtros]);
+      setList(normalizados);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.error("[propiedades] Error fetch:", err);
+        setList(MOCK); // fallback si hay error de red/parseo
+      }
+    }
+  })();
+
+  return () => ctrl.abort();
+}, [filtros]);
+
 
   // chips de filtros (solo si existen → NO aparece “1 huéspedes” por defecto)
   const filterChips = useMemo(() => {
