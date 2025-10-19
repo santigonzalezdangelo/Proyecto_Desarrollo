@@ -13,7 +13,7 @@ class ReservationDAO extends PostgresDAO {
       return newReservation;
     } catch (error) {
       console.error("Error creating reservation:", error);
-      throw new Error(error);
+      throw(error);
     }
   };
 
@@ -22,7 +22,7 @@ class ReservationDAO extends PostgresDAO {
       return await this.model.findAll({ where: { id_usuario } });
     } catch (error) {
       console.error("Error fetching reservations by user id:", error);
-      throw new Error(error);
+      throw(error);
     }
   };
 
@@ -31,7 +31,7 @@ class ReservationDAO extends PostgresDAO {
       return await this.model.findAll({ where: { id_propiedad } });
     } catch (error) {
       console.error("Error fetching reservations by property id:", error);
-      throw new Error(error);
+      throw(error);
     }
   };
 }

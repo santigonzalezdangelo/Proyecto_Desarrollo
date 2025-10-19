@@ -6,12 +6,14 @@ export const signToken = (payload) => {
   });
 };
 
-export const verifyToken = (token) => {
-  return jwt.verify(token, process.env.JWT_SECRET);
-};
+
+const SECRET = (process.env.JWT_SECRET || "").trim();
+
+export const verifyToken = (token) =>
+  jwt.verify(token, SECRET, { algorithms: ["HS256"] }); // login usa HS256 por defecto
 
 export const setAuthCookie = (res, token) => {
-  res.cookie("aloja_token", token, {
+  res.cookie("aloja_jwt", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -20,7 +22,7 @@ export const setAuthCookie = (res, token) => {
 };
 
 export const clearAuthCookie = (res) => {
-  res.clearCookie("aloja_token", {
+  res.clearCookie("aloja_jwt", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

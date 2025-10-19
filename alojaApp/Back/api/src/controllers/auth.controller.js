@@ -6,11 +6,12 @@ import e from "express";
 import {
   createHash,
   isValidHash,
+
 } from "../utils/utils.js";
 
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret"; // <-- poné uno real
+const JWT_SECRET = process.env.JWT_SECRET; // <-- poné uno real
 const isProd = process.env.NODE_ENV === "production";
 
 
@@ -121,14 +122,24 @@ class AuthController {
      * POST /api/auth/logout
      * - Limpia la cookie del JWT
      */
-    logout = async (_req, res) => {
-      try {
-        clearAuthCookie(res); // borra cookie aloja_token (httpOnly)
-        return res.json({ status: "ok" });
-      } catch (e) {
-        console.error("logout error:", e);
-        return res.status(500).json({ error: "Error interno" });
+    logout = async (req, res) => {
+
+    try {
+
+      res.clearCookie("aloja_jwt");
+      return res.json({ message: "Logout correcto" });
+    } catch (err) {
+      console.error("Logout error:", err);
+      return res.status(500).json({ error: "Error interno" });
     }
+
   };
+  current = (req, res) => {
+  const { id_usuario, id_rol } = req.user || {};
+  if (!id_usuario) return res.status(401).json({ error: "No autenticado" });
+  // Solo estos dos campos
+  return res.status(200).json({ id_usuario, id_rol });
+};
+
 }
 export default new AuthController();
