@@ -6,7 +6,7 @@ import usersRoutes from "./user.router.js";
 import reservationRouter from "./reservations.router.js";
 import stateRouter from "./state.router.js";
 import propertyRouter from "./properties.router.js";
-import tipoPropiedadRouter from './tipoPropiedad.router.js';
+import tipoPropiedadRouter from './tiposPropiedad.router.js';
 import localidadRouter from './localidad.router.js';
 
 const router = Router();

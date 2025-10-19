@@ -5,7 +5,7 @@ import LocalidadController from '../../controllers/localidad.controller.js';
 
 const router = Router();
 
-router.post('/', LocalidadController.createLocalidad);
-router.get('/', LocalidadController.getAllLocalidades);
+router.post('/createLocalidad', LocalidadController.createLocalidad);
+router.get('/getAllLocalidades', LocalidadController.getAllLocalidades);
 
 export default router;
