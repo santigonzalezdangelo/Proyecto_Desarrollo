@@ -3,51 +3,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import PropertyCard from "../components/PropertyCard"; // <- tu componente
 import { Link, useSearchParams } from "react-router-dom";
 
+// ✅ Base de la API (usa variable de entorno si existe)
+const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:4000/api";
 
-/* ===============================
-   MOCK mientras el backend no está
-   =============================== */
-const MOCK = [
-  {
-    id_propiedad: 101,
-    titulo: "LP Microcentro – Balcón y Luz",
-    localidad: "Centro",
-    ciudad: "La Plata",
-    pais: "Argentina",
-    rating: 4.8,
-    imagen_url:
-      "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?q=80&w=1600&auto=format&fit=crop",
-    precio_por_noche: 25000,
-    huespedes: 3,
-    tipo: "Departamento",
-  },
-  {
-    id_propiedad: 102,
-    titulo: "Depto Ideal Parejas",
-    localidad: "Centro",
-    ciudad: "La Plata",
-    pais: "Argentina",
-    rating: 4.6,
-    imagen_url:
-      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=1600&auto=format&fit=crop",
-    precio_por_noche: 22000,
-    huespedes: 2,
-    tipo: "Departamento",
-  },
-  {
-    id_propiedad: 103,
-    titulo: "Loft luminoso",
-    localidad: "Gonnet",
-    ciudad: "La Plata",
-    pais: "Argentina",
-    rating: 4.9,
-    imagen_url:
-      "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1600&auto=format&fit=crop",
-    precio_por_noche: 28000,
-    huespedes: 2,
-    tipo: "Loft",
-  },
-];
 
 /* ===============================
    Colores de tu app
@@ -132,99 +90,232 @@ function Navbar({ onOpenFilters, onHelpBounce }) {
 /* ===============================
    Modal de filtros (UI sola)
    =============================== */
+// Opciones mock (hasta que tengas endpoints meta)
+const TIPOS_MOCK = [
+  { id: 1, nombre: "Departamento" },
+  { id: 2, nombre: "Casa" },
+  { id: 3, nombre: "Cabaña" },
+  { id: 4, nombre: "Loft" },
+];
+
+const AMENITIES_MOCK = [
+  { id: 1, nombre: "WiFi" },
+  { id: 2, nombre: "Piscina" },
+  { id: 3, nombre: "Estacionamiento" },
+  { id: 4, nombre: "Aire acondicionado" },
+  { id: 5, nombre: "Calefacción" },
+];
+
+
 function FiltersModal({ open, onClose, initial, onApply }) {
-  const [local, setLocal] = useState(initial || {});
-  useEffect(() => setLocal(initial || {}), [initial]);
+  const [local, setLocal] = useState(() => ({
+    // distintos al Home
+    tipo: initial?.tipo ?? "",                 // id tipo_propiedad
+    precio_min: initial?.precio_min ?? "",
+    precio_max: initial?.precio_max ?? "",
+    estancia_min: initial?.estancia_min ?? "",
+    rating_min: initial?.rating_min ?? "",     // si más adelante calculás rating
+    amenities: Array.isArray(initial?.amenities) 
+      ? initial.amenities 
+      : (typeof initial?.amenities === "string" ? initial.amenities.split(",").map(Number) : []),
+    solo_con_fotos: !!initial?.solo_con_fotos, // boolean
+    order_by: initial?.order_by ?? "",         // "precio_asc" | "precio_desc" | "rating_desc"
+  }));
+
+  useEffect(() => {
+    setLocal((prev) => ({
+      ...prev,
+      tipo: initial?.tipo ?? "",
+      precio_min: initial?.precio_min ?? "",
+      precio_max: initial?.precio_max ?? "",
+      estancia_min: initial?.estancia_min ?? "",
+      rating_min: initial?.rating_min ?? "",
+      amenities: Array.isArray(initial?.amenities) 
+        ? initial.amenities 
+        : (typeof initial?.amenities === "string" ? initial.amenities.split(",").map(Number) : []),
+      solo_con_fotos: !!initial?.solo_con_fotos,
+      order_by: initial?.order_by ?? "",
+    }));
+  }, [initial]);
+
+  const toggleAmenity = (id) => {
+    setLocal((prev) => {
+      const set = new Set(prev.amenities || []);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      return { ...prev, amenities: Array.from(set) };
+    });
+  };
+
+  const apply = () => {
+    onApply({
+      ...local,
+      // normalizamos para la query string (vacíos -> undefined; amenities CSV)
+      tipo: local.tipo || undefined,
+      precio_min: local.precio_min || undefined,
+      precio_max: local.precio_max || undefined,
+      estancia_min: local.estancia_min || undefined,
+      rating_min: local.rating_min || undefined,
+      amenities:
+        local.amenities && local.amenities.length ? local.amenities.join(",") : undefined,
+      solo_con_fotos: local.solo_con_fotos ? "1" : undefined,
+      order_by: local.order_by || undefined,
+    });
+  };
+
+  if (!open) return null;
 
   return (
-    open && (
-      <div className="fixed inset-0 z-50 grid place-items-center">
-        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-        <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6">
-          <h3 className="text-xl font-semibold mb-4" style={{ color: TEXT_DARK }}>
-            Filtros
-          </h3>
+    <div className="fixed inset-0 z-50 grid place-items-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl p-6">
+        <h3 className="text-xl font-semibold mb-4" style={{ color: "#0F172A" }}>
+          Filtros avanzados
+        </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Tipo */}
-            <label className="flex flex-col gap-1">
-              <span className="text-sm text-slate-600">Tipo de alojamiento</span>
-              <input
-                value={local.tipo || ""}
-                onChange={(e) => setLocal({ ...local, tipo: e.target.value })}
-                placeholder="Departamento, Casa, Loft…"
-                className="border rounded-lg px-3 py-2"
-              />
-            </label>
-
-            {/* Precio máx por noche */}
-            <label className="flex flex-col gap-1">
-              <span className="text-sm text-slate-600">Precio por noche (máx)</span>
-              <input
-                type="number"
-                min="0"
-                inputMode="numeric"
-                value={local.precio_max || ""}
-                onChange={(e) =>
-                  setLocal({ ...local, precio_max: e.target.value })
-                }
-                placeholder="Ej: 30000"
-                className="border rounded-lg px-3 py-2"
-              />
-            </label>
-
-            {/* Huéspedes (opcional: solo si querés mostrarlo) */}
-            <label className="flex flex-col gap-1">
-              <span className="text-sm text-slate-600">Huéspedes (opcional)</span>
-              <input
-                type="number"
-                min="1"
-                inputMode="numeric"
-                value={local.huespedes || ""}
-                onChange={(e) =>
-                  setLocal({
-                    ...local,
-                    huespedes: e.target.value ? Number(e.target.value) : undefined,
-                  })
-                }
-                placeholder="Cantidad"
-                className="border rounded-lg px-3 py-2"
-              />
-            </label>
-
-            {/* Localidad */}
-            <label className="flex flex-col gap-1">
-              <span className="text-sm text-slate-600">Localidad</span>
-              <input
-                value={local.localidad || ""}
-                onChange={(e) => setLocal({ ...local, localidad: e.target.value })}
-                placeholder="Centro, Gonnet…"
-                className="border rounded-lg px-3 py-2"
-              />
-            </label>
-          </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border"
-              style={{ background: CARD, borderColor: "rgba(0,0,0,0.1)" }}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Tipo */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-600">Tipo de propiedad</span>
+            <select
+              value={local.tipo}
+              onChange={(e) => setLocal({ ...local, tipo: e.target.value })}
+              className="border rounded-lg px-3 py-2 bg-white"
             >
-              Cancelar
-            </button>
-            <button
-              onClick={() => onApply(local)}
-              className="px-4 py-2 rounded-lg text-white"
-              style={{ background: PRIMARY }}
+              <option value="">Cualquiera</option>
+              {TIPOS_MOCK.map((t) => (
+                <option key={t.id} value={t.id}>{t.nombre}</option>
+              ))}
+            </select>
+          </label>
+
+          {/* Precio mín */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-600">Precio por noche (mín)</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={local.precio_min}
+              onChange={(e) => setLocal({ ...local, precio_min: e.target.value })}
+              placeholder="Ej: 15000"
+              className="border rounded-lg px-3 py-2"
+            />
+          </label>
+
+          {/* Precio máx */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-600">Precio por noche (máx)</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={local.precio_max}
+              onChange={(e) => setLocal({ ...local, precio_max: e.target.value })}
+              placeholder="Ej: 50000"
+              className="border rounded-lg px-3 py-2"
+            />
+          </label>
+
+          {/* Estancia mínima */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-600">Estancia mínima (noches)</span>
+            <input
+              type="number"
+              min="1"
+              inputMode="numeric"
+              value={local.estancia_min}
+              onChange={(e) => setLocal({ ...local, estancia_min: e.target.value })}
+              placeholder="Ej: 2"
+              className="border rounded-lg px-3 py-2"
+            />
+          </label>
+
+          {/* Rating mín (si lo usás más adelante) */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-600">Calificación mínima</span>
+            <input
+              type="number"
+              min="1"
+              max="5"
+              inputMode="numeric"
+              value={local.rating_min}
+              onChange={(e) => setLocal({ ...local, rating_min: e.target.value })}
+              placeholder="Ej: 4"
+              className="border rounded-lg px-3 py-2"
+            />
+          </label>
+
+          {/* Solo con fotos */}
+          <label className="flex items-center gap-2 mt-7">
+            <input
+              type="checkbox"
+              checked={!!local.solo_con_fotos}
+              onChange={(e) => setLocal({ ...local, solo_con_fotos: e.target.checked })}
+            />
+            <span className="text-sm">Mostrar solo propiedades con fotos</span>
+          </label>
+
+          {/* Orden */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-600">Ordenar por</span>
+            <select
+              value={local.order_by}
+              onChange={(e) => setLocal({ ...local, order_by: e.target.value })}
+              className="border rounded-lg px-3 py-2 bg-white"
             >
-              Continuar
-            </button>
+              <option value="">Relevancia</option>
+              <option value="precio_asc">Precio: más bajo primero</option>
+              <option value="precio_desc">Precio: más alto primero</option>
+              <option value="rating_desc">Mejor calificación</option>
+            </select>
+          </label>
+        </div>
+
+        {/* Amenities */}
+        <div className="mt-5">
+          <span className="block text-sm text-slate-600 mb-2">Características</span>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {AMENITIES_MOCK.map((a) => {
+              const checked = (local.amenities || []).includes(a.id);
+              return (
+                <label
+                  key={a.id}
+                  className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-black/5"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleAmenity(a.id)}
+                  />
+                  <span className="text-sm">{a.nombre}</span>
+                </label>
+              );
+            })}
           </div>
         </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border"
+            style={{ background: "#FFFFFF", borderColor: "rgba(0,0,0,0.1)" }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={apply}
+            className="px-4 py-2 rounded-lg text-white"
+            style={{ background: "#F8C24D" }}
+          >
+            Continuar
+          </button>
+        </div>
       </div>
-    )
+    </div>
   );
 }
+
 
 /* ===============================
    Página
@@ -296,40 +387,59 @@ useEffect(() => {
   };
 
   // cargar lista (mock por ahora)
-  useEffect(() => {
-    let cancelled = false;
+// cargar lista desde el backend (con fallback al MOCK si falla)
+useEffect(() => {
+  const ctrl = new AbortController();
 
-    (async () => {
-      /* ===============================
-         AQUÍ VA TU ENDPOINT REAL:
-         
+  (async () => {
+    try {
       const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(filtros).filter(([_,v]) => v !== undefined && v !== ""))
+        Object.fromEntries(
+          Object.entries({
+            fecha_inicio: filtros.fecha_inicio,
+            fecha_fin: filtros.fecha_fin,
+            huespedes: filtros.huespedes,
+            id_localidad: filtros.id_localidad,
+            precio_max: filtros.precio_max,
+          }).filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "")
+        )
       );
-      const res = await fetch(`http://localhost:4000/propiedades/disponibles?${qs}`);
+
+      const url = `${API_BASE}/api
+      /properties/available?${qs.toString()}`;
+      const res = await fetch(url, { signal: ctrl.signal });
+
+      if (!res.ok) {
+        console.warn("[propiedades] Respuesta no OK:", res.status);
+        setList([]);
+        return;
+      }
+
       const data = await res.json();
-      if (!cancelled) setList(data);
-         =============================== */
+      const normalizados = (Array.isArray(data) ? data : []).map((p) => ({
+        ...p,
+        imagen_url:
+          p.imagen_url ||
+          p.url_foto ||
+          p.foto?.nombre ||
+          p.fotos?.[0]?.url_foto ||
+          p.fotos?.[0]?.nombre ||
+          p.foto_url,
+      }));
 
-      // MOCK (filtrado básico)
-      const filtered = MOCK.filter((p) => {
-        if (filtros.precio_max && p.precio_por_noche > Number(filtros.precio_max))
-          return false;
-        if (filtros.huespedes && p.huespedes < Number(filtros.huespedes))
-          return false;
-        if (filtros.id_localidad && String(filtros.id_localidad) !== "1")
-          return true; // demo: no frenamos si no coincide (porque no tenemos ids reales en mock)
-        if (filtros.localidad && !p.localidad?.toLowerCase().includes(String(filtros.localidad).toLowerCase()))
-          return false;
-        return true;
-      });
-      if (!cancelled) setList(filtered);
-    })();
+      setList(normalizados);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        console.error("[propiedades] Error fetch:", err);
+        setList([]);
+      }
+    }
+  })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [filtros]);
+  return () => ctrl.abort();
+}, [filtros]);
+
+
 
   // chips de filtros (solo si existen → NO aparece “1 huéspedes” por defecto)
   const filterChips = useMemo(() => {
