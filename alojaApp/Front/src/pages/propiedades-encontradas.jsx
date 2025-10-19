@@ -405,7 +405,8 @@ useEffect(() => {
         )
       );
 
-      const url = `${API_BASE}/api/properties/available?${qs.toString()}`;
+      const url = `${API_BASE}/api
+      /properties/available?${qs.toString()}`;
       const res = await fetch(url, { signal: ctrl.signal });
 
       if (!res.ok) {
