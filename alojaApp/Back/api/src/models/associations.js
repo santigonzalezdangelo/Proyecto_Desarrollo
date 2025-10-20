@@ -6,81 +6,107 @@ import propertyModel from "./property.model.js";
 import photoModel from "./photo.model.js";
 import reservationModel from "./reservation.model.js";
 import stateModel from "./state.model.js";
-import localidadModel from "./localidad.model.js"; 
-import tipoPropiedadModel from "./tipoPropiedad.model.js"; 
+import tipoPropiedadModel from "./tipoPropiedad.model.js";
+import localidadModel from "./localidad.model.js";
+import ciudadModel from "./ciudad.model.js";
+import paisModel from "./pais.model.js";
+import ratingPropertyModel from "./ratingProperty.model.js";
 
-// --- Usuarios y Propiedades (Anfitriones) ---
-userModel.hasMany(propertyModel, {
-  foreignKey: 'id_anfitrion', 
-  sourceKey: 'id_usuario',    
-  as: 'properties',
-});
+/* ===================== */
+/* 🌍 Relaciones Geográficas */
+/* ===================== */
 
-propertyModel.belongsTo(userModel, {
-  foreignKey: 'id_anfitrion', 
-  targetKey: 'id_usuario',    
-  as: 'anfitrion',
-});
-// ----------------------------------------------------
+// Localidad → Ciudad → País
+localidadModel.belongsTo(ciudadModel, { foreignKey: "id_ciudad", as: "ciudad" });
+ciudadModel.hasMany(localidadModel, { foreignKey: "id_ciudad", as: "localidades" });
 
-// --- Propiedades y Fotos
-propertyModel.hasMany(photoModel, {
-  foreignKey: "id_propiedad",
-  as: "fotos",
+ciudadModel.belongsTo(paisModel, { foreignKey: "id_pais", as: "pais" });
+paisModel.hasMany(ciudadModel, { foreignKey: "id_pais", as: "ciudades" });
+
+/* ===================== */
+/* 🏡 Propiedades */
+/* ===================== */
+
+// Tipo de Propiedad ↔ Propiedad
+propertyModel.belongsTo(tipoPropiedadModel, { foreignKey: "id_tipo_propiedad", as: "tipoPropiedad" });
+tipoPropiedadModel.hasMany(propertyModel, { foreignKey: "id_tipo_propiedad", as: "properties" });
+
+// Usuario (Anfitrión) ↔ Propiedades
+propertyModel.belongsTo(userModel, { foreignKey: "id_anfitrion", as: "anfitrion" });
+userModel.hasMany(propertyModel, { foreignKey: "id_anfitrion", as: "properties" });
+
+// Localidad ↔ Propiedad
+propertyModel.belongsTo(localidadModel, { foreignKey: "id_localidad", as: "localidad" });
+localidadModel.hasMany(propertyModel, { foreignKey: "id_localidad", as: "properties" });
+
+/* ===================== */
+/* 📸 Fotos */
+/* ===================== */
+
+propertyModel.hasMany(photoModel, { foreignKey: "id_propiedad", as: "fotos", onDelete: "CASCADE" });
+photoModel.belongsTo(propertyModel, { foreignKey: "id_propiedad", as: "propiedad" });
+
+/* ===================== */
+/* 👤 Roles y Usuarios */
+/* ===================== */
+
+roleModel.hasMany(userModel, { foreignKey: "id_rol", as: "usuarios" });
+userModel.belongsTo(roleModel, { foreignKey: "id_rol", as: "rol" });
+
+/* ===================== */
+/* 🏠 Localidad y Usuarios */
+/* ===================== */
+
+userModel.belongsTo(localidadModel, { foreignKey: "id_localidad", as: "localidad" });
+localidadModel.hasMany(userModel, { foreignKey: "id_localidad", as: "usuarios" });
+
+/* ===================== */
+/* 📅 Reservas */
+/* ===================== */
+
+// Usuario ↔ Reservas
+userModel.hasMany(reservationModel, { foreignKey: "id_usuario", as: "reservas" });
+reservationModel.belongsTo(userModel, { foreignKey: "id_usuario", as: "usuario" });
+
+// Propiedad ↔ Reservas
+propertyModel.hasMany(reservationModel, { foreignKey: "id_propiedad", as: "reservas" });
+reservationModel.belongsTo(propertyModel, { foreignKey: "id_propiedad", as: "propiedad" });
+
+// Estado ↔ Reservas
+stateModel.hasMany(reservationModel, { foreignKey: "id_estado", as: "reservas" });
+reservationModel.belongsTo(stateModel, { foreignKey: "id_estado", as: "estado" });
+
+/* ===================== */
+/* 🌟 Calificaciones Propiedad */
+/* ===================== */
+
+// Una reserva tiene UNA calificación
+reservationModel.hasOne(ratingPropertyModel, {
+  foreignKey: "id_reserva",
+  as: "calificacion",
   onDelete: "CASCADE",
 });
-photoModel.belongsTo(propertyModel, {
-  foreignKey: "id_propiedad",
-  as: "propiedad",
+
+// Una calificación pertenece a UNA reserva
+ratingPropertyModel.belongsTo(reservationModel, {
+  foreignKey: "id_reserva",
+  as: "reserva",
 });
 
-// --- Roles y Usuarios
-roleModel.hasMany(userModel, { foreignKey: "id_rol" });
-userModel.belongsTo(roleModel, { foreignKey: "id_rol" });
+/* ===================== */
+/* 📤 Exportar modelos */
+/* ===================== */
 
-// --- Usuarios y Reservas 
-userModel.hasMany(reservationModel, { foreignKey: "id_usuario" });
-reservationModel.belongsTo(userModel, { foreignKey: "id_usuario" });
-
-// --- Propiedades y Reservas 
-propertyModel.hasMany(reservationModel, { foreignKey: "id_propiedad" });
-reservationModel.belongsTo(propertyModel, { foreignKey: "id_propiedad" });
-
-// --- Estados y Reservas 
-stateModel.hasMany(reservationModel, { foreignKey: "id_estado" });
-reservationModel.belongsTo(stateModel, { foreignKey: "id_estado" });
-
-// --- Propiedad y Localidad ---
-propertyModel.belongsTo(localidadModel, {
-  foreignKey: 'id_localidad',
-  targetKey: 'id_localidad',
-  as: 'localidad',
-});
-localidadModel.hasMany(propertyModel, {
-  foreignKey: 'id_localidad',
-  sourceKey: 'id_localidad', 
-  as: 'properties',
-});
-
-// --- Propiedad y Tipo de Propiedad ---
-propertyModel.belongsTo(tipoPropiedadModel, {
-  foreignKey: 'id_tipo_propiedad',
-  targetKey: 'id_tipo_propiedad', 
-  as: 'tipoPropiedad',
-});
-tipoPropiedadModel.hasMany(propertyModel, {
-  foreignKey: 'id_tipo_propiedad',
-  sourceKey: 'id_tipo_propiedad', 
-  as: 'properties',
-});
-
-export { 
+export {
   roleModel,
   userModel,
   propertyModel,
   photoModel,
   reservationModel,
   stateModel,
-  localidadModel,       // <--- Añadido
-  tipoPropiedadModel    // <--- Añadido
+  tipoPropiedadModel,
+  localidadModel,
+  ciudadModel,
+  paisModel,
+  ratingPropertyModel
 };
