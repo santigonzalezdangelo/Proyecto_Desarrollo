@@ -3,7 +3,7 @@ import Home from "./pages/home.jsx";      // si tu archivo se llama 'home.jsx'
 import Login from "./pages/Login.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import AdministrarPropiedades from "./pages/administrarPropiedades.jsx";
+import AdministrarPropiedades from "./pages/AdministrarPropiedades.jsx";
 import Search from "./pages/search.jsx";  // importa el componente Search (export default)
 import PropiedadesEncontradas from "./pages/propiedades-encontradas.jsx";
 import Reservas from "./pages/reservas.jsx";
