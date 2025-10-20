@@ -6,7 +6,9 @@ class PropertyDAO extends PostgresDAO {
     super(propertyModel);
   }
 
-  // 🔍 Obtener todas las propiedades con sus fotos asociadas
+  // --- Métodos Públicos ---
+
+  // Obtener todas las propiedades con sus fotos
   getAllWithPhotos = async () => {
     try {
       return await this.model.findAll({
@@ -18,7 +20,7 @@ class PropertyDAO extends PostgresDAO {
     }
   };
 
-  // 🔍 Obtener una propiedad específica con sus fotos
+  // Obtener una propiedad específica por ID con sus fotos
   getByIdWithPhotos = async (id) => {
     try {
       return await this.model.findByPk(id, {
@@ -26,6 +28,50 @@ class PropertyDAO extends PostgresDAO {
       });
     } catch (error) {
       console.error("Error fetching property by id:", error);
+      throw new Error(error);
+    }
+  };
+
+  // --- Métodos Privados (para el panel del Anfitrión) ---
+
+  // Encuentra todas las propiedades de un anfitrión específico
+  findAllByAnfitrion = async (anfitrionId) => {
+    try {
+      return await this.model.findAll({
+        where: { id_anfitrion: anfitrionId },
+        include: [{ model: photoModel, as: "fotos" }],
+      });
+    } catch (error) {
+      console.error("Error fetching properties by anfitrion:", error);
+      throw new Error(error);
+    }
+  };
+
+  // Encuentra una propiedad, solo si pertenece al anfitrión (para seguridad)
+  findByIdAndAnfitrion = async (propiedadId, anfitrionId) => {
+    try {
+      return await this.model.findOne({
+        where: {
+          id_propiedad: propiedadId,
+          id_anfitrion: anfitrionId,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching property by id and anfitrion:", error);
+      throw new Error(error);
+    }
+  };
+
+  // Crea una nueva propiedad asignada al anfitrión
+  createForAnfitrion = async (data, anfitrionId) => {
+    try {
+      const propertyData = {
+        ...data,
+        id_anfitrion: anfitrionId,
+      };
+      return await this.model.create(propertyData);
+    } catch (error) {
+      console.error("Error creating property for anfitrion:", error);
       throw new Error(error);
     }
   };
