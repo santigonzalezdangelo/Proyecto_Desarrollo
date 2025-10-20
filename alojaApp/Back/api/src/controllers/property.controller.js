@@ -78,7 +78,7 @@ export const getPropiedadById = async (req, res) => {
       return res.status(404).json({ error: "Propiedad no encontrada" });
     }
 
-    // 🧮 promedio de calificaciones
+    // 🧮 promedio de calificacioness
     const calificaciones = propiedad.reservas
       ?.map((r) => r.calificacion?.puntuacion)
       .filter((p) => p !== undefined && p !== null);
