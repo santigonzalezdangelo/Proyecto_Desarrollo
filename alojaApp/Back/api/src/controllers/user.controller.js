@@ -1,4 +1,4 @@
-import { UserDao}   from "../dao/user.dao.js";
+import { UserDAO}   from "../dao/user.dao.js";
 
 
 /**
