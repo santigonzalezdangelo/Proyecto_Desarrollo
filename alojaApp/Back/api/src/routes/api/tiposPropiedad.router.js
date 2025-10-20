@@ -6,7 +6,7 @@ import TipoPropiedadController from '../../controllers/tipoPropiedad.controller.
 const router = Router();
 
 // Estas rutas son para cargar datos, por ahora las dejamos públicas
-router.post('/', TipoPropiedadController.createTipo);
-router.get('/', TipoPropiedadController.getAllTipos);
+router.post('/createTipoPropiedad', TipoPropiedadController.createTipo);
+router.get('/getAllTiposPropiedad', TipoPropiedadController.getAllTipos);
 
 export default router;
