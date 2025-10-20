@@ -1,10 +1,10 @@
-import e, { Router } from "express";
-import reservationController from "../../controllers/reservation.controller.js";   
 
+import { Router } from "express";
+import { reservationController } from "../../controllers/reservation.controller.js";
 
 const router = Router();
 
-// Crear una nueva reserva
-router.post("/create", reservationController.createReservation);
+router.post("/createReservation", reservationController.create);
+router.get("/myReservations/:id", reservationController.getMine);
 
 export default router;
