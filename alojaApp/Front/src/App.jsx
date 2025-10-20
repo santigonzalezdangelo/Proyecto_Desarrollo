@@ -3,7 +3,6 @@ import Home from "./pages/home.jsx";
 import Login from "./pages/login.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import Search from "./pages/search.jsx";
 import AdministrarPropiedades from "./pages/administrarPropiedades.jsx";
 import Search from "./pages/search.jsx";  // importa el componente Search (export default)
 import PropiedadesEncontradas from "./pages/propiedades-encontradas.jsx";

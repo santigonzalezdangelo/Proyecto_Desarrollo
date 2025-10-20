@@ -13,7 +13,7 @@ router.get('/getPropertiesById/:id', PropertyController.getPropertyById);
 
 // (También llamamos a los métodos del controlador)
 router.get('/my-properties', PropertyController.getMyProperties);
-router.post('/createProperty', PropertyController.createProperty);
+router.post('/createProperty', PropertyController.createPropertyWithAssociation);
 router.put('/updatePropertyById/:id', PropertyController.updateProperty);
 router.delete('/deletePropertyById/:id', PropertyController.deleteProperty);
 // GET /api/properties/featured

@@ -40,16 +40,23 @@ class PropertyController {
     }
   };
 
-  createProperty = async (req, res) => {
+  // createProperty = async (req, res) => {
+  //   try {
+  //     const anfitrionId = req.user.id_usuario;
+  //     const newProperty = await PropertyDAO.createForAnfitrion(req.body, anfitrionId);
+  //     res.status(201).json(newProperty);
+  //   } catch (error) {
+  //     res.status(400).json({ message: 'Error al crear la propiedad', error: error.message });
+  //   }
+  // };
+  createPropertyWithAssociation = async (data, anfitrionId) => {
     try {
-      const anfitrionId = req.user.id_usuario;
-      const newProperty = await PropertyDAO.createForAnfitrion(req.body, anfitrionId);
-      res.status(201).json(newProperty);
+      return await this.createWithAssociation('userModel', anfitrionId, 'properties', data);
     } catch (error) {
-      res.status(400).json({ message: 'Error al crear la propiedad', error: error.message });
+      console.error('Error al crear una propiedad para un anfitrion:', error);
+      throw new Error(error);
     }
   };
-
   updateProperty = async (req, res) => {
     try {
       const { id: propiedadId } = req.params;

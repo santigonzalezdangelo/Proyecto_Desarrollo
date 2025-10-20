@@ -74,7 +74,7 @@ class PropertyDAO extends PostgresDAO {
       console.error("Error creating property for anfitrion:", error);
       throw new Error(error);
     }
-  };
-}
 
+}
+}
 export default new PropertyDAO();
