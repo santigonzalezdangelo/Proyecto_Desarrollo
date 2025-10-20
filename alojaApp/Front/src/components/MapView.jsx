@@ -5,9 +5,10 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
 const icon = L.icon({
-  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
   iconSize: [32, 32],
 });
+
 
 export default function MapView({ lat, lng, title }) {
   if (!lat || !lng) return <p>No se pudo cargar el mapa</p>;

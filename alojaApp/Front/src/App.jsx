@@ -4,6 +4,7 @@ import Login from "./pages/Login.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Search from "./pages/search.jsx";  // importa el componente Search (export default)
+import Reserva from "./pages/Reserva.jsx";
 
 export default function App() {
   return (
@@ -11,7 +12,7 @@ export default function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/buscar" element={<Search />} />   {/* <-- FIX */}
-      
+      <Route path="/reserva" element={<Reserva />} />
       <Route
         path="/profile"
         element={
