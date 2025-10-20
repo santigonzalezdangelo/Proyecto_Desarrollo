@@ -3,13 +3,21 @@ import  UserDao  from "../dao/user.dao.js";
 import { roleDao } from "../dao/role.dao.js";
 
 // Verifica JWT desde cookie y adjunta req.user
+// Sirve para validar si el usuario esta logueado, verifica la firma del token
 export const requireAuth = async (req, res, next) => {
   try {
-    const token = req.cookies?.aloja_token;
+    let token = req.cookies?.aloja_jwt;
+
     if (!token) return res.status(401).json({ error: "No autenticado" });
 
-    const decoded = verifyToken(token); // { id_usuario, id_rol }
-    const user = await UserDao.findById(decoded.id_usuario);
+    const decoded = verifyToken(token); 
+
+  
+    const id_usuario = decoded.id ?? decoded.id_usuario ?? decoded.uid;
+    const id_rol = decoded.id_rol ?? decoded.rid ?? null;
+    if (!id_usuario) return res.status(401).json({ error: "Token inválido" });
+
+    const user = await UserDao.findById(id_usuario);
     if (!user) return res.status(401).json({ error: "Sesión inválida" });
 
     req.user = {
@@ -19,9 +27,12 @@ export const requireAuth = async (req, res, next) => {
     };
     next();
   } catch (e) {
-    return res.status(401).json({ error: "Token inválido o expirado" });
+    console.error("requireAuth error:", e.name, e.message);
+    return res
+      .status(401)
+      .json({ error: e.name === "TokenExpiredError" ? "Sesión expirada" : "Token inválido o expirado" });
   }
-};
+}
 
 // Restringe por nombre de rol (ej: 'anfitrion')
 export const requireRole = (rolName) => async (req, res, next) => {

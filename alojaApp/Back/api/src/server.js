@@ -450,12 +450,14 @@ import cookieParser from "cookie-parser";
 import { connectDB, sequelize } from "./config/db.js";
 import apiRouter from "./routes/api/index.routes.js";
 
+
 const app = express();
 const PORT   = process.env.PORT;
 const ORIGIN = process.env.CORS_ORIGIN;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 
 
 app.use(cors({

@@ -1,151 +1,95 @@
-import PropertyDAO from "../dao/property.dao.js";
+// src/controllers/property.controller.js
 
-/**
- * GET /api/propiedades/precio
- * Calcula el precio total de una reserva según las fechas y la propiedad
- */
-export const getPrecio = async (req, res) => {
-  try {
-    const { id_propiedad, fecha_inicio, fecha_fin } = req.query;
+import PropertyDAO from '../dao/property.dao.js';
 
-    // ✅ Validar parámetros
-    if (!id_propiedad || !fecha_inicio || !fecha_fin) {
-      return res.status(400).json({ error: "Faltan parámetros obligatorios" });
+class PropertyController {
+
+  // --- Controladores de Vistas Públicas ---
+
+  getAllProperties = async (req, res) => {
+    try {
+      const properties = await PropertyDAO.getAllWithPhotos();
+      res.status(200).json(properties);
+    } catch (error) {
+      res.status(500).json({ message: 'Error al obtener propiedades', error: error.message });
     }
+  };
 
-    // ✅ Validar fechas
-    const inicio = new Date(fecha_inicio);
-    const fin = new Date(fecha_fin);
-    if (isNaN(inicio) || isNaN(fin) || fin <= inicio) {
-      return res.status(400).json({ error: "Fechas inválidas" });
+  getPropertyById = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const property = await PropertyDAO.getByIdWithPhotos(id);
+      if (!property) {
+        return res.status(404).json({ message: 'Propiedad no encontrada' });
+      }
+      res.status(200).json(property);
+    } catch (error) {
+      res.status(500).json({ message: 'Error al obtener la propiedad', error: error.message });
     }
+  };
 
-    // ✅ Calcular días
-    const diffTime = Math.abs(fin - inicio);
-    const dias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  // --- Controladores del Panel de Anfitrión (Privados) ---
 
-    // ✅ Buscar propiedad con DAO
-    const propiedad = await PropertyDAO.getById(id_propiedad);
-    if (!propiedad) {
-      return res.status(404).json({ error: "Propiedad no encontrada" });
+  getMyProperties = async (req, res) => {
+    try {
+      const anfitrionId = req.user.id_usuario; 
+      const properties = await PropertyDAO.findAllByAnfitrion(anfitrionId);
+      res.status(200).json(properties);
+    } catch (error) {
+      res.status(500).json({ message: 'Error al obtener mis propiedades', error: error.message });
     }
+  };
 
-    // ✅ Calcular precio total
-    const precioPorNoche = Number(propiedad.precio_por_noche);
-    const precioTotal = dias * precioPorNoche;
-
-    // ✅ Responder
-    return res.json({
-      id_propiedad: Number(id_propiedad),
-      fecha_inicio,
-      fecha_fin,
-      dias,
-      precio_por_noche: precioPorNoche,
-      precio_total: precioTotal,
-    });
-  } catch (error) {
-    console.error("Error en GET /api/propiedades/precio:", error);
-    return res.status(500).json({ error: "Error al calcular precio" });
-  }
-};
-
-
-/**
- * GET /api/propiedades/:id
- * Devuelve toda la información de una propiedad:
- * - Datos básicos de la propiedad
- * - Tipo de propiedad
- * - Localidad → Ciudad → País
- * - Datos del anfitrión
- * - Fotos asociadas
- */
-/**
- * GET /api/propiedades/:id
- * Devuelve toda la información de una propiedad:
- * - Datos básicos de la propiedad
- * - Tipo de propiedad
- * - Localidad → Ciudad → País
- * - Datos del anfitrión
- * - Fotos asociadas
- * - Coordenadas (latitud, longitud)
- */
-export const getPropiedadById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const propiedad = await PropertyDAO.getFullById(id);
-    if (!propiedad) {
-      return res.status(404).json({ error: "Propiedad no encontrada" });
+  createProperty = async (req, res) => {
+    try {
+      const anfitrionId = req.user.id_usuario;
+      const newProperty = await PropertyDAO.createForAnfitrion(req.body, anfitrionId);
+      res.status(201).json(newProperty);
+    } catch (error) {
+      res.status(400).json({ message: 'Error al crear la propiedad', error: error.message });
     }
+  };
 
-    // 🧮 promedio de calificacioness
-    const calificaciones = propiedad.reservas
-      ?.map((r) => r.calificacion?.puntuacion)
-      .filter((p) => p !== undefined && p !== null);
+  updateProperty = async (req, res) => {
+    try {
+      const { id: propiedadId } = req.params;
+      const anfitrionId = req.user.id_usuario;
+      const dataToUpdate = req.body;
 
-    const promedio =
-      calificaciones?.length > 0
-        ? (calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length).toFixed(1)
-        : null;
+      const property = await PropertyDAO.findByIdAndAnfitrion(propiedadId, anfitrionId);
+      if (!property) {
+        return res.status(404).json({ message: 'Propiedad no encontrada o no te pertenece' });
+      }
+      
+      const [updatedCount] = await PropertyDAO.update(propiedadId, dataToUpdate);
+      if (updatedCount === 0) {
+          return res.status(404).json({ message: 'Propiedad no encontrada' });
+      }
 
-    // ✅ respuesta
-    const result = {
-      id_propiedad: propiedad.id_propiedad,
-      descripcion: propiedad.descripcion,
-      precio_por_noche: Number(propiedad.precio_por_noche),
-      cantidad_huespedes: propiedad.cantidad_huespedes,
-      estancia_minima: propiedad.estancia_minima,
+      const updatedProperty = await PropertyDAO.getByIdWithPhotos(propiedadId);
+      res.status(200).json(updatedProperty);
+      
+    } catch (error) {
+      res.status(500).json({ message: 'Error al actualizar la propiedad', error: error.message });
+    }
+  };
 
-      // 📍 Coordenadas
-      latitud: propiedad.latitud !== null ? Number(propiedad.latitud) : null,
-      longitud: propiedad.longitud !== null ? Number(propiedad.longitud) : null,
+  deleteProperty = async (req, res) => {
+    try {
+      const { id: propiedadId } = req.params;
+      const anfitrionId = req.user.id_usuario;
 
-      // (opcional, por si querés mostrar dirección)
-      calle: propiedad.calle ?? null,
-      numero: propiedad.numero ?? null,
+      const property = await PropertyDAO.findByIdAndAnfitrion(propiedadId, anfitrionId);
+      if (!property) {
+        return res.status(404).json({ message: 'Propiedad no encontrada o no te pertenece' });
+      }
 
-      // 🔗 relaciones
-      tipo: propiedad.tipo?.nombre_tipo ?? null,
-      localidad: propiedad.localidad?.nombre_localidad ?? null,
-      ciudad: propiedad.localidad?.ciudad?.nombre_ciudad ?? null,
-      pais: propiedad.localidad?.ciudad?.pais?.nombre_pais ?? null,
-      anfitrion: propiedad.anfitrion
-        ? {
-            nombre: propiedad.anfitrion.nombre,
-            apellido: propiedad.anfitrion.apellido,
-            correo: propiedad.anfitrion.correo,
-          }
-        : null,
-      fotos:
-        propiedad.fotos?.map((f) => ({
-          id_foto: f.id_foto,
-          url_foto: f.url_foto,
-          nombre_foto: f.nombre_foto,
-          principal: f.principal,
-        })) ?? [],
-      calificaciones: propiedad.reservas?.map((r) => r.calificacion).filter(Boolean) ?? [],
-      puntuacion_promedio: promedio ? Number(promedio) : 0,
-    };
+      await PropertyDAO.delete(propiedadId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: 'Error al eliminar la propiedad', error: error.message });
+    }
+  };
+}
 
-    return res.json(result);
-  } catch (error) {
-    console.error("Error en GET /api/propiedades/:id:", error);
-    return res.status(500).json({ error: "Error al obtener la propiedad" });
-  }
-};
-
-
-
-
-export const getPropiedadesDestacadas = async (req, res) => {
-  try {
-    const excludeId = req.query.excludeId ? Number(req.query.excludeId) : null;
-    const propiedades = await PropertyDAO.getFeaturedProperties(4, excludeId);
-    return res.json(propiedades);
-  } catch (error) {
-    console.error("Error en GET /api/propiedades/destacadas:", error);
-    return res.status(500).json({ error: "Error al obtener propiedades destacadas" });
-  }
-};
-
-
+export default new PropertyController();

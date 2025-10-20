@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useEffect } from "react";
-import SearchButton from "../components/SearchButton";
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect} from "react";
+import Navbar from "../components/NavBar";
+import { SearchBar } from "../components/SearchBar";
 import PropertyCard from "../components/PropertyCard";
 
 /**
@@ -29,6 +30,11 @@ const TEXT_DARK = "#0F172A";
 const TEXT_MUTED = "#334155";
 const CARD_BG = "#FFFFFF";
 const PAGE_BG = PRIMARY;
+
+// Alturas para controlar “fusión” con Navbar
+const NAV_HEIGHT = 72;        // alto visible de tu navbar
+const HERO_ANCHOR_TOP = 130;  // top cuando está grande en el héroe
+const NAV_Z = 90;             // z-index del navbar 
 
 // ====== Helpers ======
 function classNames(...xs) {
@@ -79,284 +85,6 @@ export function isSearchDisabled({ location, checkIn, checkOut, guests }) {
   return !(Number.isFinite(g) && g >= 1);
 }
 
-function Navbar({ active = "inicio" }) {
-  const items = [
-    { key: "inicio", label: "Inicio", href: "/" },
-    { key: "perfil", label: "Perfil", href: "/perfil" },
-    { key: "login", label: "Login", href: "/login" },
-  ];
-
-  return (
-    <header
-      className="sticky top-0 z-50 w-full shadow-md"
-      style={{
-        backgroundColor: "#F5DCA1",
-        color: TEXT_DARK,
-      }}
-      aria-label="Barra de navegación"
-    >
-      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <a href="/" aria-label="Ir al inicio">
-            <img
-              src="/images/logo.png"
-              alt="AlojaApp"
-              className="object-contain"
-              style={{ maxHeight: "70px", height: "auto", width: "auto" }}
-            />
-          </a>
-        </div>
-
-        {/* Links */}
-        <nav className="flex items-center gap-3">
-          {items.map((it) => (
-            <a
-              key={it.key}
-              href={it.href}
-              className={classNames(
-                "text-base transition-colors",
-                active === it.key ? "font-semibold" : "opacity-80 hover:opacity-100"
-              )}
-              aria-current={active === it.key ? "page" : undefined}
-              style={{ color: TEXT_DARK, textDecoration: "none" }}
-            >
-              {it.label}
-            </a>
-          ))}
-        </nav>
-      </div>
-    </header>
-  );
-}
-
-// ====== Search Bar ======
-// ====== Helpers extra ======
-function debounce(fn, wait = 300) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), wait);
-  };
-}
-
-// ====== Search Bar ======
-function SearchBar({ onSearch }) {
-  const [locationText, setLocationText] = useState("");     // lo que escribe el usuario
-  const [idLocalidad, setIdLocalidad] = useState("");       // el ID real seleccionado
-  const [sugs, setSugs] = useState([]);                     // sugerencias
-  const [openSugs, setOpenSugs] = useState(false);
-  const [activeIdx, setActiveIdx] = useState(-1);
-
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState(1);
-  const [maxPrice, setMaxPrice] = useState("");
-
-  // hoy como mínimo para check-in (opcional)
-  const today = new Date().toISOString().slice(0,10);
-
-  // Validación: deshabilitar si faltan campos o si checkOut < checkIn
-  const disabled = useMemo(() => {
-    if (!idLocalidad || !checkIn || !checkOut) return true;
-    if (new Date(checkOut) < new Date(checkIn)) return true;
-    const g = Number(guests);
-    return !(Number.isFinite(g) && g >= 1);
-  }, [idLocalidad, checkIn, checkOut, guests]);
-
-  // Mantener coherencia: si usuario baja checkOut por debajo de checkIn, corrige
-  useEffect(() => {
-    if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) {
-      setCheckOut(checkIn);
-    }
-  }, [checkIn, checkOut]);
-
-  // Buscar sugerencias con debounce mientras escribe
-  const fetchSugs = useMemo(() => debounce(async (q) => {
-    if (!q || q.trim().length < 1) { setSugs([]); setOpenSugs(false); return; }
-    try {
-      const res = await fetch(`http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      setSugs(Array.isArray(data) ? data : []);
-      setOpenSugs(true);
-      setActiveIdx(-1);
-    } catch (e) {
-      console.error("Autocomplete error:", e);
-      setSugs([]);
-      setOpenSugs(false);
-    }
-  }, 250), []);
-
-  // Cada letra actualiza y dispara el debounce
-  function handleLocationChange(e) {
-    const val = e.target.value;
-    setLocationText(val);
-    setIdLocalidad("");    // invalida selección previa
-    fetchSugs(val);
-  }
-
-  function selectSuggestion(s) {
-    // Mostramos texto bonito y guardamos el ID real
-    setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`);
-    setIdLocalidad(String(s.id_localidad));
-    setOpenSugs(false);
-  }
-
-  function handleKeyDown(e) {
-    if (!openSugs || sugs.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIdx((i) => (i + 1) % sugs.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length);
-    } else if (e.key === "Enter" && activeIdx >= 0) {
-      e.preventDefault();
-      selectSuggestion(sugs[activeIdx]);
-    } else if (e.key === "Escape") {
-      setOpenSugs(false);
-    }
-  }
-
-  return (
-    <div className="w-full max-w-6xl mx-auto" role="search" aria-label="Buscador de alojamientos">
-      <div
-        className="rounded-2xl shadow-xl p-4 md:p-5"
-        style={{ backgroundColor: CARD_BG, border: "1px solid rgba(0,0,0,0.05)" }}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-          {/* Ubicación + Autocomplete */}
-          <div className="relative md:col-span-2">
-            <Field label="¿A dónde vas?" icon={<MapPinIcon />}>
-              <input
-                value={locationText}
-                onChange={handleLocationChange}
-                onKeyDown={handleKeyDown}
-                onFocus={() => sugs.length && setOpenSugs(true)}
-                placeholder="Localidad (ej.: Centro, Palermo...)"
-                className="w-full bg-transparent outline-none"
-                aria-label="Destino"
-              />
-            </Field>
-
-            {openSugs && sugs.length > 0 && (
-              <ul
-                className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md"
-                role="listbox"
-              >
-                {sugs.map((s, idx) => (
-                  <li
-                    key={s.id_localidad}
-                    role="option"
-                    aria-selected={activeIdx === idx}
-                    className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
-                    onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                    onMouseEnter={() => setActiveIdx(idx)}
-                  >
-                    <div className="text-sm font-medium">{s.localidad}</div>
-                    <div className="text-xs text-slate-600">{s.ciudad}, {s.pais}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Check-in */}
-          <Field label="Fecha de llegada" icon={<CalendarIcon />}>
-            <input
-              type="date"
-              min={today}
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
-
-          {/* Check-out (no menor que check-in) */}
-          <Field label="Fecha de salida" icon={<CalendarIcon />}>
-            <input
-              type="date"
-              min={checkIn || today}
-              value={checkOut}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (checkIn && new Date(v) < new Date(checkIn)) {
-                  setCheckOut(checkIn);
-                } else {
-                  setCheckOut(v);
-                }
-              }}
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
-
-          {/* Huéspedes */}
-          <Field label="Huéspedes" icon={<UsersIcon />}>
-            <input
-              type="number"
-              min={1}
-              value={guests}
-              onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
-              className="w-full bg-transparent outline-none"
-            />
-          </Field>
-
-          {/* Precio máx (num libre, sin slider) */}
-          <Field label="Precio por noche" icon={<PriceIcon />}>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={maxPrice}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, ""); // solo números
-                setMaxPrice(val);
-              }}
-              className="w-full bg-transparent outline-none appearance-none"
-              placeholder="Ej: 300"
-              
-            />
-          </Field>
-
-
-          {/* Botón Buscarrrr*/}
-          <div className="flex justify-center md:justify-end">
-            <SearchButton
-              onClick={() => !disabled && onSearch?.({
-                location: idLocalidad,            // 👈 mandamos el ID real
-                checkIn,
-                checkOut,
-                guests,
-                maxPrice
-              })}
-              disabled={disabled}
-              label="Buscar"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
-function Field({ label, icon, children }) {
-  return (
-    <label className="flex items-center gap-2 rounded-xl border border-black/5 bg-white px-3 py-3">
-      <span className="shrink-0 opacity-70" aria-hidden>
-        {icon}
-      </span>
-      <div className="flex flex-col w-full">
-        <span className="text-xs uppercase tracking-wide opacity-60" style={{ color: TEXT_MUTED }}>
-          {label}
-        </span>
-        {children}
-      </div>
-    </label>
-  );
-}
 
 // ====== Cards (Home: destacadas) ======
 function DestinationsGrid() {
@@ -422,57 +150,6 @@ function Footer() {
   );
 }
 
-// ====== Iconos (SVG inline, sin librerías) ======
-function PinIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <path d="M12 22s7-7.111 7-12a7 7 0 10-14 0c0 4.889 7 12 7 12z" stroke={TEXT_DARK} strokeWidth="1.5" />
-      <circle cx="12" cy="10" r="2.5" stroke={TEXT_DARK} strokeWidth="1.5" />
-    </svg>
-  );
-}
-function CalendarIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <rect x="3" y="5" width="18" height="16" rx="2" stroke={TEXT_MUTED} strokeWidth="1.5" />
-      <path d="M16 3v4M8 3v4M3 10h18" stroke={TEXT_MUTED} strokeWidth="1.5" />
-    </svg>
-  );
-}
-function MapPinIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <path d="M12 21s6-6.091 6-10.364A6 6 0 106 10.636C6 14.909 12 21 12 21z" stroke={TEXT_MUTED} strokeWidth="1.5" />
-      <circle cx="12" cy="10" r="2.2" stroke={TEXT_MUTED} strokeWidth="1.5" />
-    </svg>
-  );
-}
-function UsersIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <circle cx="9" cy="8" r="3.5" stroke={TEXT_MUTED} strokeWidth="1.5" />
-      <path d="M2.5 19c0-3.038 2.962-5.5 6.5-5.5S15.5 15.962 15.5 19" stroke={TEXT_MUTED} strokeWidth="1.5" />
-      <circle cx="18" cy="10" r="2.5" stroke={TEXT_MUTED} strokeWidth="1.5" />
-      <path d="M16 19c0-1.657 1.79-3 4-3" stroke={TEXT_MUTED} strokeWidth="1.5" />
-    </svg>
-  );
-}
-function PriceIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <text
-        x="4"
-        y="18"
-        fontSize="16"
-        fontWeight="bold"
-        fill={TEXT_MUTED}
-      >
-        $
-      </text>
-    </svg>
-  );
-}
-
 function StarIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
@@ -485,6 +162,7 @@ function StarIcon() {
 // arriba del archivo: // suma useEffect si no estaba
 
 export default function Home() {
+  const searchAnchorRef = useRef(null);
   // ⬇ Chat Dialogflow dentro del componente (no afuera)
   useEffect(() => {
     // evita inyectar dos veces en dev/StrictMode
@@ -531,8 +209,8 @@ export default function Home() {
     navigateTo(url);
   }
 
-  return (
-    <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh" }}>
+return (
+    <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh", paddingTop: `${NAV_HEIGHT + 16}px` }}>
       <Navbar active="inicio" />
       {/* ...tu contenido tal cual... */}
       <section className="mx-auto max-w-7xl px-4 pt-10 pb-8">
@@ -542,9 +220,18 @@ export default function Home() {
         <p className="mt-3 text-lg max-w-2xl" style={{ color: TEXT_MUTED }}>
           Explorá los mejores lugares para hospedarte. Inspirado en experiencias de Airbnb y Booking.
         </p>
+        {/* Ancla: donde descansa la barra grande en el héroe */}
+        <div ref={searchAnchorRef} />
+
         <div className="mt-6">
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar
+            mode="floating"                // ← En otras páginas usá mode="fixed"
+            anchorRef={searchAnchorRef}    // ← Sólo en Home (para el scroll suave)
+            navbarHeight={NAV_HEIGHT}      // ← para alinearla con el navbar
+            onSearch={handleSearch}
+          />
         </div>
+
       </section>
 
       <div className="rounded-t-[28px]" style={{ backgroundColor: "#FFF6DB" }}>
@@ -552,8 +239,9 @@ export default function Home() {
       </div>
 
       <Footer />
-    </div>
-  );
+    </div>
+);
+
 }
 
 // ====== Smoke Tests (solo en desarrollo) ======

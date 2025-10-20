@@ -22,9 +22,9 @@ class PropertyDAO extends PostgresDAO {
     super(propertyModel);
   }
 
-  /**
-   * Obtener todas las propiedades con sus fotos
-   */
+  // --- Métodos Públicos ---
+
+  // Obtener todas las propiedades con sus fotos
   getAllWithPhotos = async () => {
     try {
       return await this.model.findAll({
@@ -36,9 +36,7 @@ class PropertyDAO extends PostgresDAO {
     }
   };
 
-  /**
-   * Obtener una propiedad específica por ID con sus fotos
-   */
+  // Obtener una propiedad específica por ID con sus fotos
   getByIdWithPhotos = async (id) => {
     try {
       return await this.model.findByPk(id, {
@@ -50,132 +48,49 @@ class PropertyDAO extends PostgresDAO {
     }
   };
 
-  /**
-   * Obtener una propiedad completa con:
-   * - Fotos
-   * - Tipo
-   * - Localidad → Ciudad → País
-   * - Anfitrión (usuario)
-   * - Calificaciones (a través de reservas)
-   */
-  getFullById = async (id) => {
+  // --- Métodos Privados (para el panel del Anfitrión) ---
+
+  // Encuentra todas las propiedades de un anfitrión específico
+  findAllByAnfitrion = async (anfitrionId) => {
     try {
-      return await this.model.findByPk(id, {
-        include: [
-          // 📸 Fotos
-          { model: photoModel, as: "fotos" },
-
-          // 🏡 Tipo de propiedad
-          { model: typePropertyModel, as: "tipo" },
-
-          // 👤 Anfitrión
-          {
-            model: userModel,
-            as: "anfitrion",
-            attributes: ["nombre", "apellido", "correo"],
-          },
-
-          // 🌍 Localidad → Ciudad → País
-          {
-            model: localidadModel,
-            as: "localidad",
-            include: {
-              model: ciudadModel,
-              as: "ciudad",
-              include: { model: paisModel, as: "pais" },
-            },
-          },
-
-          // 📅 Reservas → Calificaciones
-          {
-            model: reservationModel,
-            as: "reservas",
-            include: [
-              {
-                model: ratingPropertyModel,
-                as: "calificacion",
-              },
-            ],
-          },
-        ],
+      return await this.model.findAll({
+        where: { id_anfitrion: anfitrionId },
+        include: [{ model: photoModel, as: "fotos" }],
       });
     } catch (error) {
-      console.error("Error fetching full property with relations:", error);
+      console.error("Error fetching properties by anfitrion:", error);
       throw new Error(error);
     }
   };
 
-  // 📦 src/dao/property.dao.js
-  getFeaturedProperties = async (limit = 4, excludeId = null) => {
+  // Encuentra una propiedad, solo si pertenece al anfitrión (para seguridad)
+  findByIdAndAnfitrion = async (propiedadId, anfitrionId) => {
     try {
-      const whereClause = excludeId
-        ? { id_propiedad: { [Op.ne]: excludeId } } // excluir la propiedad actual
-        : {};
-
-      const properties = await this.model.findAll({
-        where: whereClause,
-        limit,
-        order: [["id_propiedad", "ASC"]],
-        attributes: ["id_propiedad", "descripcion", "precio_por_noche"],
-        include: [
-          {
-            model: photoModel,
-            as: "fotos",
-            attributes: ["url_foto", "principal"],
-            where: { principal: true },
-            required: false,
-          },
-          {
-            model: localidadModel,
-            as: "localidad",
-            attributes: ["nombre_localidad"],
-            include: [
-              {
-                model: ciudadModel,
-                as: "ciudad",
-                attributes: ["nombre_ciudad"],
-              },
-            ],
-          },
-          {
-            model: reservationModel,
-            as: "reservas",
-            include: [
-              {
-                model: ratingPropertyModel,
-                as: "calificacion",
-                attributes: ["puntuacion"],
-              },
-            ],
-          },
-        ],
+      return await this.model.findOne({
+        where: {
+          id_propiedad: propiedadId,
+          id_anfitrion: anfitrionId,
+        },
       });
-
-      const mapped = properties.map((p) => {
-        const calificaciones = p.reservas?.map((r) => r.calificacion?.puntuacion).filter(Boolean);
-        const ratingPromedio =
-          calificaciones.length > 0
-            ? (calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length).toFixed(1)
-            : 0;
-
-        return {
-          id_propiedad: p.id_propiedad,
-          imagen_url: p.fotos?.[0]?.url_foto || null,
-          titulo: p.descripcion.slice(0, 40) + "...",
-          subtitulo: `${p.localidad?.nombre_localidad ?? ""}, ${p.localidad?.ciudad?.nombre_ciudad ?? ""}`,
-          rating: Number(ratingPromedio),
-        };
-      });
-
-      return mapped;
     } catch (error) {
-      console.error("Error fetching featured properties:", error);
+      console.error("Error fetching property by id and anfitrion:", error);
       throw new Error(error);
     }
   };
 
+  // Crea una nueva propiedad asignada al anfitrión
+  createForAnfitrion = async (data, anfitrionId) => {
+    try {
+      const propertyData = {
+        ...data,
+        id_anfitrion: anfitrionId,
+      };
+      return await this.model.create(propertyData);
+    } catch (error) {
+      console.error("Error creating property for anfitrion:", error);
+      throw new Error(error);
+    }
+  };
 }
-
-
 
 export default new PropertyDAO();

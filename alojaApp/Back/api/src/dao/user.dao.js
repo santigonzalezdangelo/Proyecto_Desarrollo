@@ -25,12 +25,18 @@ class UserDAO extends PostgresDAO {
     } 
   };
 
-  findByEmail = async (correo) => {
+  findById = async (id_usuario) => {
     try {
-      return await this.model.findOne({ where: { correo } });
+      const user = await this.model.findOne({
+        where: { id_usuario },
+        include: [
+          { model: roleModel, as: "Role", required: false } // para user.Role?.nombre_rol
+        ],
+      });
+      return user; // puede ser null si no existe
     } catch (error) {
-      console.error("Error finding user by email:", error);
-      throw new Error(error);
+      console.error("Error in UserDAO.findById:", error);
+      throw error;
     }
   };
 }

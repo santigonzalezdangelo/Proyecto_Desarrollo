@@ -1,6 +1,7 @@
 // src/utils/utils.js
 import bcryptjs from "bcryptjs";
 import crypto from "crypto";
+import { create } from "domain";
 
 /* ================== HASH (bcryptjs) ================== */
 export const createHash = async (password) => {
@@ -61,4 +62,13 @@ export function decrypt(b64) {
   return decrypted.toString("utf8");
 }
 
-export const generateRefreshToken = () => crypto.randomBytes(64).toString("hex");
+//dejo comentado por si tengo q utilizarlo luego
+// export function createResponse(req, res, statusCode, data = null, message = null) {
+//   return res.status(statusCode).json({
+//     data,
+//     status: statusCode,
+//     msg: message ?? "success",
+//     path: req.url,
+//   });
+// }
+
