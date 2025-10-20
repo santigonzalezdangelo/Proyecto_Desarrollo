@@ -8,6 +8,7 @@ import Search from "./pages/search.jsx";  // importa el componente Search (expor
 import PropiedadesEncontradas from "./pages/propiedades-encontradas.jsx";
 import Reservas from "./pages/reservas.jsx";
 import Register from "./pages/Register.jsx";
+import Reserva from "./pages/Reserva.jsx";
 
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/buscar" element={<Search />} />   {/* <-- FIX */}
       <Route path="/reservas" element={<Reservas />} />
+      <Route path="/reserva" element={<Reserva />} />
       <Route path="/register" element={<Register />} />
       <Route path="/perfil" element={<Profile />} />
       <Route path="/administrarPropiedades" element= {<AdministrarPropiedades/>}/>
