@@ -40,23 +40,34 @@ class PropertyController {
     }
   };
 
-  // createProperty = async (req, res) => {
-  //   try {
-  //     const anfitrionId = req.user.id_usuario;
-  //     const newProperty = await PropertyDAO.createForAnfitrion(req.body, anfitrionId);
-  //     res.status(201).json(newProperty);
-  //   } catch (error) {
-  //     res.status(400).json({ message: 'Error al crear la propiedad', error: error.message });
-  //   }
-  // };
-  createPropertyWithAssociation = async (data, anfitrionId) => {
+
+  createProperty = async (req, res) => {
     try {
-      return await this.createWithAssociation('userModel', anfitrionId, 'properties', data);
+      const { id_usuario } = req.user;
+      if (!id_usuario) {
+        return res.status(401).json({ error: 'No autenticado' });
+      }
+
+      // Usa solo los datos del body (sin el id del anfitrión)
+      const data = req.body;
+
+      // Llama al DAO que se encarga de la asociación
+      const nuevaPropiedad = await PropertyDAO.createPropertyWithAssociation(data, id_usuario);
+
+      res.status(201).json({
+        message: 'Propiedad creada correctamente',
+        data: nuevaPropiedad
+      });
     } catch (error) {
-      console.error('Error al crear una propiedad para un anfitrion:', error);
-      throw new Error(error);
+      console.error('ERROR DETALLADO:', error); 
+      res.status(500).json({ 
+        error: 'Error al crear la propiedad', 
+        message: error.message, // Devuelve el mensaje real de la BBDD
+        details: error.parent?.detail // (Si es un error de Postgres, aquí estará el detalle)
+      });
     }
   };
+  
   updateProperty = async (req, res) => {
     try {
       const { id: propiedadId } = req.params;
@@ -68,7 +79,7 @@ class PropertyController {
         return res.status(404).json({ message: 'Propiedad no encontrada o no te pertenece' });
       }
       
-      const [updatedCount] = await PropertyDAO.update(propiedadId, dataToUpdate);
+      const [updatedCount] = await PropertyDAO.updateById(propiedadId, dataToUpdate);
       if (updatedCount === 0) {
           return res.status(404).json({ message: 'Propiedad no encontrada' });
       }
@@ -91,7 +102,7 @@ class PropertyController {
         return res.status(404).json({ message: 'Propiedad no encontrada o no te pertenece' });
       }
 
-      await PropertyDAO.delete(propiedadId);
+      await PropertyDAO.deleteById(propiedadId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: 'Error al eliminar la propiedad', error: error.message });

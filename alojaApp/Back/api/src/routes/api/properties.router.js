@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import PropertyController from '../../controllers/property.controller.js'; 
 import { getFeaturedProperties, getAvailableProperties } from "../../controllers/properties.controller.js";
+import { requireAuth } from '../../middlewares/auth.js';
 
 
 const router = Router();
@@ -12,10 +13,10 @@ router.get('/getAllProperties', PropertyController.getAllProperties);
 router.get('/getPropertiesById/:id', PropertyController.getPropertyById);
 
 // (También llamamos a los métodos del controlador)
-router.get('/my-properties', PropertyController.getMyProperties);
-router.post('/createProperty', PropertyController.createPropertyWithAssociation);
-router.put('/updatePropertyById/:id', PropertyController.updateProperty);
-router.delete('/deletePropertyById/:id', PropertyController.deleteProperty);
+router.get('/my-properties', requireAuth, PropertyController.getMyProperties);
+router.post('/createProperty', requireAuth,PropertyController.createProperty);
+router.put('/updatePropertyById/:id', requireAuth, PropertyController.updateProperty);
+router.delete('/deletePropertyById/:id', requireAuth, PropertyController.deleteProperty);
 // GET /api/properties/featured
 router.get("/featured", getFeaturedProperties);
 
