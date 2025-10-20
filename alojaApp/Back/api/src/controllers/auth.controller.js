@@ -46,7 +46,7 @@ class AuthController {
         // Si tu atributo es 'password' mapeado a DB 'contrasena', cambialo a password: hashed
         const created = await UserDAO.create({
           correo: email,
-          password: hashed,   // <-- cambia a 'password' si tu modelo usa ese atributo
+          password: hashed,   
           id_rol: roleId,
         });
 
