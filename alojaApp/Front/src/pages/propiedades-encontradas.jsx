@@ -1,10 +1,13 @@
 // src/pages/propiedades-encontradas.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import PropertyCard from "../components/PropertyCard"; // <- tu componente
 import { Link, useSearchParams } from "react-router-dom";
+import Navbar from "../components/Navbar";
+import PropertyCard from "../components/PropertyCard";
+
 
 // ✅ Base de la API (usa variable de entorno si existe)
-const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:4000/api";
+console.log("[VITE] VITE_API_BASE =", import.meta.env?.VITE_API_BASE);
+
 
 
 /* ===============================
@@ -17,75 +20,7 @@ const CARD = "#FFFFFF";
 /* ===============================
    Navbar simple (logo + hamburguesa)
    =============================== */
-function Navbar({ onOpenFilters, onHelpBounce }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <header
-      className="sticky top-0 z-50 w-full border-b"
-      style={{ backgroundColor: "#FFF4D0", borderColor: "rgba(0,0,0,0.08)" }}
-    >
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          {/* usa tu icono Aloja */}
-          <img
-            src="/public/images/logo.png" /* pon aquí tu ruta real */
-            alt="Aloja"
-            className="w-16 h-16 object-contain"
-          />
-        </Link>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenFilters}
-            className="px-4 py-2 rounded-full text-sm font-medium border hover:opacity-90"
-            style={{ background: CARD, borderColor: "rgba(0,0,0,0.1)" }}
-          >
-            Filtros
-          </button>
-
-          {/* Hamburguesa */}
-          <div className="relative">
-            <button
-              onClick={() => setOpen((v) => !v)}
-              aria-label="Abrir menú"
-              className="w-10 h-10 grid place-items-center rounded-full border"
-              style={{ background: CARD, borderColor: "rgba(0,0,0,0.1)" }}
-            >
-              <div className="space-y-1.5">
-                <span className="block w-5 h-[2px] bg-black/70" />
-                <span className="block w-5 h-[2px] bg-black/70" />
-                <span className="block w-5 h-[2px] bg-black/70" />
-              </div>
-            </button>
-
-            {open && (
-              <div
-                className="absolute right-0 mt-2 w-44 rounded-xl shadow-lg border p-2 bg-white"
-                style={{ borderColor: "rgba(0,0,0,0.08)" }}
-              >
-                <Link
-                  to="/login"
-                  className="block px-3 py-2 rounded-lg hover:bg-black/5"
-                >
-                  Iniciar sesión / Registrarme
-                </Link>
-                <button
-                  onClick={() => {
-                    onHelpBounce?.();
-                    setOpen(false);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-black/5"
-                >
-                  Pedir ayuda
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
 
 /* ===============================
    Modal de filtros (UI sola)
@@ -316,6 +251,39 @@ function FiltersModal({ open, onClose, initial, onApply }) {
   );
 }
 
+function FilterFab({ onClick }) {
+  const TEXT_DARK = "#0F172A";
+  return (
+    <button
+      type="button"
+      aria-label="Abrir filtros"
+      onClick={onClick}
+      className="fixed rounded-xl shadow-lg hover:scale-105 transition-transform"
+      style={{
+        // alineado con tu navbar sin modificarlo
+        top: 10,              // distancia desde arriba (navbar ~72px de alto → este valor se ve bien)
+        right: 24,
+           // margen derecho
+        width: 52,
+        height: 52,
+        backgroundColor: "#EABA4B",
+        color: TEXT_DARK,
+        zIndex: 9999,         // por encima del navbar
+      }}
+    >
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+        {/* Ícono de filtros (3 sliders) */}
+        <line x1="4" y1="5" x2="20" y2="5" stroke={TEXT_DARK} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="10" cy="5" r="2" fill={TEXT_DARK} />
+        <line x1="4" y1="12" x2="20" y2="12" stroke={TEXT_DARK} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="16" cy="12" r="2" fill={TEXT_DARK} />
+        <line x1="4" y1="19" x2="20" y2="19" stroke={TEXT_DARK} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="8" cy="19" r="2" fill={TEXT_DARK} />
+      </svg>
+    </button>
+  );
+}
+
 
 /* ===============================
    Página
@@ -393,22 +361,32 @@ useEffect(() => {
 
   (async () => {
     try {
+      // Armamos solo con claves definidas/no vacías
       const qs = new URLSearchParams(
         Object.fromEntries(
           Object.entries({
+            // básicos
             fecha_inicio: filtros.fecha_inicio,
             fecha_fin: filtros.fecha_fin,
             huespedes: filtros.huespedes,
             id_localidad: filtros.id_localidad,
+            // avanzados (solo los que hoy existen en tu UI)
+            id_tipo_propiedad: filtros.id_tipo_propiedad,
+            precio_min: filtros.precio_min,
             precio_max: filtros.precio_max,
+            estancia_min: filtros.estancia_min,
+            rating_min: filtros.rating_min,
+            amenities: filtros.amenities, // CSV
+            order_by: filtros.order_by,
           }).filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "")
         )
       );
 
-      const url = `${API_BASE}/api
-      /properties/available?${qs.toString()}`;
-      const res = await fetch(url, { signal: ctrl.signal });
+      const url = `/api/properties/available?${qs.toString()}`;
+      console.log("[FETCH] URL =>", url);
+      console.log("[FETCH] filtros =>", Object.fromEntries(qs));
 
+      const res = await fetch(url, { signal: ctrl.signal });
       if (!res.ok) {
         console.warn("[propiedades] Respuesta no OK:", res.status);
         setList([]);
@@ -416,6 +394,7 @@ useEffect(() => {
       }
 
       const data = await res.json();
+
       const normalizados = (Array.isArray(data) ? data : []).map((p) => ({
         ...p,
         imagen_url:
@@ -447,68 +426,125 @@ useEffect(() => {
     if (filtros.fecha_inicio && filtros.fecha_fin)
       chips.push(`Del ${filtros.fecha_inicio} al ${filtros.fecha_fin}`);
     if (filtros.huespedes) chips.push(`${filtros.huespedes} huésped(es)`);
-    if (filtros.localidad) chips.push(`Localidad: ${filtros.localidad}`);
+    if (filtros.id_localidad) chips.push(`Localidad #${filtros.id_localidad}`);
     if (filtros.precio_max) chips.push(`Hasta $${filtros.precio_max}/noche`);
-    if (filtros.tipo) chips.push(`Tipo: ${filtros.tipo}`);
+    if (filtros.id_tipo_propiedad) chips.push(`Tipo #${filtros.id_tipo_propiedad}`);
     return chips;
   }, [filtros]);
 
+  // arriba del return, define estas constantes (para que sea fácil ajustar)
+const NAV_H = 72;         // alto del Navbar (tu Navbar.jsx usa 72)
+const NAV_PADX = 28;      // padding lateral interno del navbar
+const MENU_BTN_W = 52;    // ancho del botón hamburguesa
+const GAP = 10;           // separación entre el botón filtros y el hamburguesa
+const RIGHT_OFFSET = NAV_PADX + MENU_BTN_W + GAP; // 28 + 52 + 10 = 90
+const FILTER_BTN_SIZE = 52; // px
+const NAV_Z = 200;        // igual que el Navbar
+
   return (
-    <div style={{ background: PRIMARY + "20", minHeight: "100vh" }}>
-      <Navbar
-        onOpenFilters={() => setOpenFilters(true)}
-        onHelpBounce={bounceHelp}
-      />
+  <div style={{ background: PRIMARY + "20", minHeight: "100vh" }}>
+    {/* Navbar fijo */}
+    <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h1 className="text-2xl font-bold" style={{ color: TEXT_DARK }}>
-            Propiedades encontradas
-          </h1>
-          <span className="text-slate-600">{list.length} resultados</span>
-        </div>
+    {/* BOTÓN DE FILTROS FIJO (a la izquierda del menú) */}
+{/* BOTÓN DE FILTROS FIJO (alineado con el menú) */}
+{/* BOTÓN DE FILTROS FIJO (alineado con el menú) */}
+<button
+  onClick={() => setOpenFilters(true)}
+  className="flex items-center justify-center rounded-xl shadow-md hover:scale-105 active:scale-95 transition-transform"
+  style={{
+    position: "fixed",
+    // centrado vertical perfecto: (alto navbar - alto botón) / 2
+    top: (NAV_H - FILTER_BTN_SIZE) / 2,      // 72 - 48 = 12
+    // a la izquierda del hamburguesa: padding der del navbar + ancho botón menú + gap
+    right: RIGHT_OFFSET,                     // 28 + 52 + 10 = 90
+    width: FILTER_BTN_SIZE,                  // 52 (o ponelo en 52 si lo querés igual al menú)
+    height: FILTER_BTN_SIZE,
+    backgroundColor: "#F8C24D",
+    color: "#0F172A",
+    zIndex: NAV_Z + 10,                      // 210 (encima del navbar)
+    boxShadow: "0 10px 24px rgba(0,0,0,.16)",
+  }}
+  aria-label="Abrir filtros"
+  title="Filtros"
+>
+  {/* Ícono filtros */}
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <line x1="4" y1="8"  x2="20" y2="8"  stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="10" cy="8" r="2" fill="#0F172A" />
+    <line x1="4" y1="12" x2="20" y2="12" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="15" cy="12" r="2" fill="#0F172A" />
+    <line x1="4" y1="16" x2="20" y2="16" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="8" cy="16" r="2" fill="#0F172A" />
+  </svg>
+</button>
 
-        {/* Chips de filtros aplicados */}
-        {filterChips.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {filterChips.map((t, i) => (
-              <span
-                key={i}
-                className="px-3 py-1 rounded-full text-sm border bg-white"
-                style={{ borderColor: "rgba(0,0,0,0.1)" }}
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
 
-        {/* Grid de cards usando TU PropertyCard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {list.map((p) => (
-            <PropertyCard
-              key={p.id_propiedad}
-              image={p.imagen_url}
-              title={`${p.titulo} – ${p.localidad}`}
-              subtitle={`${p.ciudad}, ${p.pais}`}
-              rating={p.rating ?? 0}
-            />
-          ))}
-        </div>
-      </main>
 
-      <FiltersModal
-        open={openFilters}
-        initial={filtros}
-        onClose={() => setOpenFilters(false)}
-        onApply={(f) => {
-          setOpenFilters(false);
-          setFiltros((prev) => ({ ...prev, ...f }));
-          // cuando tengas backend, opcionalmente actualizás la URL:
-          // const qs = new URLSearchParams({...prev, ...f});
-          // window.history.replaceState({}, "", `/buscar?${qs.toString()}`);
-        }}
-      />
+    {/* SPACER para que el contenido no quede debajo del navbar */}
+    <div style={{ height: NAV_H }} />
+
+    {/* ...tu <main> y resto de la página */}
+    <main className="max-w-7xl mx-auto px-4 py-6">
+  {list.length === 0 ? (
+    <p className="text-center text-slate-600 mt-10">
+      No se encontraron propiedades que coincidan con los filtros seleccionados.
+    </p>
+  ) : (
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {list.map((p) => (
+        <PropertyCard
+          key={p.id_propiedad}
+          image={
+            p.imagen_url ||
+            "https://via.placeholder.com/400x250?text=AlojaApp"
+          }
+          title={`${p.descripcion?.slice(0, 60) ?? "Propiedad"} – ${p.localidad ?? ""}`}
+          subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`}
+          rating={Number(p.rating ?? 0)}
+          price={p.precio_por_noche}
+          guests={p.cantidad_huespedes}
+        />
+      ))}
     </div>
-  );
+  )}
+</main>
+
+
+    {/* Tu modal de filtros usa setOpenFilters(true/false) como ya tenías */}
+    <FiltersModal
+      open={openFilters}
+      initial={filtros}
+      onClose={() => setOpenFilters(false)}
+onApply={(f) => {
+  setOpenFilters(false);
+
+  // Logueamos lo que viene del modal
+  console.log("[FiltersModal] onApply ->", f);
+
+  // Actualizamos el estado de filtros que usa el fetch
+  setFiltros((prev) => ({
+        // básicos (los preservo)
+        fecha_inicio: prev.fecha_inicio,
+        fecha_fin: prev.fecha_fin,
+        id_localidad: prev.id_localidad,
+        huespedes: prev.huespedes,
+
+        // avanzados (vienen del modal)
+        id_tipo_propiedad: f.tipo || undefined,
+        precio_min: f.precio_min || undefined,
+        precio_max: f.precio_max || undefined,
+        estancia_min: f.estancia_min || undefined,
+        rating_min: f.rating_min || undefined,
+        amenities:
+          Array.isArray(f.amenities) && f.amenities.length
+            ? f.amenities.join(",")
+            : (typeof f.amenities === "string" ? f.amenities : undefined),
+        order_by: f.order_by || undefined,
+      }));
+    }}
+    />
+  </div>
+);
+
 }
