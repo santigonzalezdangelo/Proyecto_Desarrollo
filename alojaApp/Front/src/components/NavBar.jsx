@@ -228,7 +228,7 @@ export default function Navbar({
                 <a role="menuitem" href="/perfil" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
                   Perfil
                 </a>
-                <a role="menuitem" href="/admin/propiedades" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
+                <a role="menuitem" href="/administrarPropiedades" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
                   Administrar propiedades
                 </a>
                 <a role="menuitem" href="/reservas" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
