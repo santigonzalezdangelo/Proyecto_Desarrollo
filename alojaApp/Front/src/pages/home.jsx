@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, useLayoutEffect} from "rea
 import Navbar from "../components/NavBar";
 import { SearchBar } from "../components/SearchBar";
 import PropertyCard from "../components/PropertyCard";
+import { createPortal } from "react-dom";
 
 /**
  * AlojaApp – Home.jsx (FIX NAVIGATION)
@@ -75,7 +76,7 @@ export function buildSearchURL({ location, checkIn, checkOut, guests, maxPrice }
     params.set("precio_max", String(maxPrice));
   }
 
-  return `/buscar?${params.toString()}`;
+  return `/propiedades-filtradas?${params.toString()}`;
 }
 
 /** Determina si la búsqueda debe estar deshabilitada (precio es opcional) */
@@ -249,8 +250,10 @@ export default function Home() {
   }, []);
 
   function handleSearch(params) {
+    // arma /buscar?fecha_inicio=...&fecha_fin=...&huespedes=...&id_localidad=...&precio_max=...
     const url = buildSearchURL(params);
-    navigateTo(url);
+    // redirige a la página de resultados (allí se hace el fetch al endpoint)
+    window.location.assign(url);
   }
 
 return (
@@ -297,14 +300,16 @@ return (
           {/* Ancla para posicionar la SearchBar */}
           <div ref={searchAnchorRef} />
 
-          <div className="mt-4" style={{ position: "relative", zIndex: 1000 }}>
+          {/* Barra de búsqueda flotante: puede pasar por arriba del navbar,
+            pero NO tapa el botón hamburguesa (que queda con zIndex más alto) */}
+          <div className="mt-6">
             <SearchBar
               variant="floating"
               anchorRef={searchAnchorRef}
-              navbarHeight={0}     
               onSearch={handleSearch}
             />
           </div>
+
         </div>
       </section>
 
