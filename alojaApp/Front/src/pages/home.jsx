@@ -102,7 +102,7 @@ function DestinationsGrid() {
             import.meta.env.VITE_API_URL) ||
           "http://localhost:4000";
 
-        const res = await fetch(`${BASE}/api/properties/destacadas`, {
+        const res = await fetch(`${BASE}/properties/destacadas`, {
           headers: { Accept: "application/json" },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
