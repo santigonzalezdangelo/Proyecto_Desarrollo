@@ -6,6 +6,40 @@ class PhotoDAO extends PostgresDAO {
     super(photoModel);
   }
 
+  // --- MÉTODO RENOMBRADO ---
+  createPropertyPhoto = async (data) => {
+    try {
+      if (Array.isArray(data)) {
+        // Si 'data' es un array (múltiples fotos), usamos bulkCreate.
+        return await this.model.bulkCreate(data);
+      }
+      // Si es un solo objeto, usamos el create normal.
+      return await this.model.create(data);
+    } catch (error) {
+      console.error("Error creating photo data:", error);
+      throw new Error(error);
+    }
+  };
+    // --- MÉTODO DELETEBYID (FALTANTE) ---
+  deletePropertyPhotoById = async (id_foto) => {
+    try {
+        return await this.model.destroy({ where: { id_foto: id_foto } });
+    } catch (error) {
+        console.error("Error deleting photo by id:", error);
+        throw new Error(error);
+    }
+  };
+    // --- MÉTODO FINDBYID FALTANTE ---
+  findById = async (id_foto) => {
+    try {
+      // findByPk busca por la clave primaria definida en el modelo
+      return await this.model.findByPk(id_foto);
+    } catch (error) {
+      console.error("Error fetching photo by id:", error);
+      throw new Error(error);
+    }
+  };
+
   // 🔍 Obtener todas las fotos de una propiedad específica
   getByPropertyId = async (id_propiedad) => {
     try {
@@ -38,3 +72,4 @@ class PhotoDAO extends PostgresDAO {
 }
 
 export default new PhotoDAO();
+

@@ -135,31 +135,36 @@ export default function AdministrarPropiedades() {
         }, 3000);
     };
 
-    useEffect(() => {
-        const fetchPropiedades = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const response = await fetch(`${API_BASE}/properties/my-properties`, { credentials: 'include' });
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Error ${response.status}`);
-                }
-                const data = await response.json();
-                const mappedData = data.map(p => ({
-                    ...p,
-                    localidad_nombre: p.localidad?.nombre || 'N/A',
-                    tipo_propiedad_nombre: p.tipoPropiedad?.nombre || 'N/A',
-                    url_foto_principal: p.fotos?.[0]?.url,
-                    estado_publicacion: 'PUBLICADO'
-                }));
-                setPropiedades(mappedData);
-            } catch (err) {
-                setError(err.message || "Ocurrió un error inesperado.");
-            } finally {
-                setLoading(false);
+    const fetchPropiedades = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await fetch(`${API_BASE}/properties/my-properties`, { credentials: 'include' });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Error ${response.status}`);
             }
-        };
+            const data = await response.json();
+            const mappedData = data.map(p => ({
+                ...p,
+                localidad_nombre: p.localidad?.nombre || 'N/A',
+                tipo_propiedad_nombre: p.tipoPropiedad?.nombre || 'N/A',
+                url_foto_principal: p.fotos?.find(f => f.principal)?.url_foto
+                ? `${p.fotos.find(f => f.principal).url_foto}?f_auto,q_auto,dpr_auto`
+                : p.fotos?.[0]?.url_foto
+                    ? `${p.fotos[0].url_foto}?f_auto,q_auto,dpr_auto`
+                    : undefined,
+                estado_publicacion: 'PUBLICADO'
+            }));
+            setPropiedades(mappedData);
+        } catch (err) {
+            setError(err.message || "Ocurrió un error inesperado.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchPropiedades();
     }, []);
 
@@ -175,53 +180,107 @@ export default function AdministrarPropiedades() {
     const handleCloseModal = () => { setIsModalOpen(false); setPropertyToEdit(null); };
     const handleOpenEditModal = (propiedad) => { setPropertyToEdit(propiedad); setIsModalOpen(true); };
     
-    const handleSaveProperty = async (savedPropertyData, photoFiles) => {
-        const isEditing = !!propertyToEdit;
-        const propertyUrl = isEditing ? `${API_BASE}/properties/updatePropertyById/${propertyToEdit.id_propiedad}` : `${API_BASE}/properties/createProperty`;
-        const propertyMethod = isEditing ? 'PUT' : 'POST';
+const handleSaveProperty = async (savedPropertyData, photoFiles, setPhotoFiles) => {
+	const isEditing = !!propertyToEdit;
+	const propertyUrl = isEditing ? `${API_BASE}/properties/updatePropertyById/${propertyToEdit.id_propiedad}` : `${API_BASE}/properties/createProperty`;
+	const propertyMethod = isEditing ? 'PUT' : 'POST';
 
+	try {
+		// Convertir campos numéricos vacíos a null
+		const payload = { ...savedPropertyData };
+		if (payload.precio_por_noche === '') payload.precio_por_noche = null;
+		if (payload.cantidad_huespedes === '') payload.cantidad_huespedes = null;
+		if (payload.estancia_minima === '') payload.estancia_minima = null;
+		if (payload.latitud === '') payload.latitud = null;
+		if (payload.longitud === '') payload.longitud = null;
+
+		const propertyResponse = await fetch(propertyUrl, {
+			method: propertyMethod,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload),
+			credentials: 'include',
+		});
+
+		if (!propertyResponse.ok) {
+			const errorData = await propertyResponse.json().catch(() => ({}));
+			throw new Error(errorData.message || `Error ${propertyResponse.status}: No se pudo guardar`);
+		}
+
+		const savedDataResponse = await propertyResponse.json();
+		const savedProperty = isEditing ? savedDataResponse : savedDataResponse.data;
+		const propertyId = savedProperty.id_propiedad;
+
+		// Subir fotos si hay
+		if (photoFiles.length > 0) {
+    if (photoFiles.length > 20) {
+        showNotification('No se pueden subir más de 20 fotos.', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+
+        for (const file of photoFiles) {
+            // Convertimos cada archivo a URL temporal de Cloudinary optimizada
+            formData.append('photos', file);
+        }
+
+        const photoUploadUrl = `${API_BASE}/photos/photo/${propertyId}`;
+
+        const photoResponse = await fetch(photoUploadUrl, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include',
+        });
+
+        if (!photoResponse.ok) {
+            console.error("Error subiendo fotos, pero propiedad guardada.");
+            showNotification('Propiedad guardada, pero hubo un error al subir las fotos.', 'error');
+        } else {
+            setPhotoFiles([]); // Limpiar archivos nuevos después de subir
+        }
+    }
+
+		await fetchPropiedades();
+		handleCloseModal();
+		showNotification('Propiedad guardada con éxito', 'success');
+
+	} catch (err) {
+		console.error("Error al guardar la propiedad:", err);
+		showNotification(`Error: ${err.message}`, 'error');
+	}
+};
+
+    const handleDeleteExistingPhoto = async (photoId, propertyId) => {
         try {
-            const propertyResponse = await fetch(propertyUrl, {
-                method: propertyMethod,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(savedPropertyData),
+            const response = await fetch(`${API_BASE}/photos/photo/${photoId}`, {
+                method: 'DELETE',
                 credentials: 'include',
             });
-            if (!propertyResponse.ok) {
-                const errorData = await propertyResponse.json().catch(() => ({}));
-                throw new Error(errorData.message || `Error ${propertyResponse.status}: No se pudo guardar`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'No se pudo eliminar la foto');
             }
-            
-            const savedDataResponse = await propertyResponse.json();
-            const savedProperty = isEditing ? savedDataResponse : savedDataResponse.data;
-            const propertyId = savedProperty.id_propiedad;
-
-            // TODO: Implementar la subida de 'photoFiles' al backend.
-            console.log("Archivos de fotos a subir para la propiedad ID:", propertyId, photoFiles);
-
-            const freshDataResponse = await fetch(`${API_BASE}/properties/getPropertiesById/${propertyId}`, { credentials: 'include' });
-            if(!freshDataResponse.ok) throw new Error("No se pudo refrescar la propiedad");
-            const freshData = await freshDataResponse.json();
-
-            const formattedData = {
-                ...freshData,
-                localidad_nombre: freshData.localidad?.nombre || 'N/A',
-                tipo_propiedad_nombre: freshData.tipoPropiedad?.nombre || 'N/A',
-                url_foto_principal: freshData.fotos?.[0]?.url,
-                estado_publicacion: 'PUBLICADO'
-            };
-
-            if (isEditing) {
-                setPropiedades(prev => prev.map(p => p.id_propiedad === propertyId ? formattedData : p));
-            } else {
-                setPropiedades(prev => [formattedData, ...prev]);
+            setPropiedades(prev => prev.map(p => {
+                if (p.id_propiedad === propertyId) {
+                    const newPhotos = p.fotos.filter(f => f.id_foto !== photoId);
+                    return { 
+                        ...p, 
+                        fotos: newPhotos,
+                        url_foto_principal: newPhotos.find(f => f.principal)?.url_foto || newPhotos?.[0]?.url_foto
+                    };
+                }
+                return p;
+            }));
+            if(propertyToEdit?.id_propiedad === propertyId) {
+                setPropertyToEdit(prev => {
+                    const newPhotos = prev.fotos.filter(f => f.id_foto !== photoId);
+                    return {...prev, fotos: newPhotos };
+                });
             }
-            
-            handleCloseModal();
-            showNotification('Propiedad guardada con éxito', 'success'); 
+            showNotification('Foto eliminada correctamente', 'success');
         } catch (err) {
-            console.error("Error al guardar la propiedad:", err);
-            showNotification(`Error: ${err.message}`, 'error'); 
+            console.error("Error al eliminar la foto:", err);
+            showNotification(`Error: ${err.message}`, 'error');
         }
     };
 
@@ -261,144 +320,203 @@ export default function AdministrarPropiedades() {
                 {!loading && !error && filteredPropiedades.length === 0 && (<div className="text-center py-12"><p className="text-xl" style={{color: TEXT_MUTED}}>No tienes propiedades.</p><p className="mt-2" style={{color: TEXT_MUTED}}>Haz clic en "Añadir" para empezar.</p></div>)}
                 {!loading && !error && filteredPropiedades.length > 0 && (<div className="space-y-8">{filteredPropiedades.map(prop => (<AdminPropertyCard key={prop.id_propiedad} propiedad={prop} onEliminar={handleEliminar} onCambiarEstado={handleCambiarEstado} onEdit={handleOpenEditModal}/>))}</div>)}
             </main>
-            <PropertyEditModal isOpen={isModalOpen} onClose={handleCloseModal} onSave={handleSaveProperty} property={propertyToEdit} showNotification={showNotification} />
+            <PropertyEditModal 
+                isOpen={isModalOpen} 
+                onClose={handleCloseModal} 
+                onSave={handleSaveProperty} 
+                property={propertyToEdit} 
+                showNotification={showNotification}
+                onDeleteExistingPhoto={handleDeleteExistingPhoto} 
+            />
             <ConfirmationModal isOpen={confirmation.isOpen} onClose={() => setConfirmation({ ...confirmation, isOpen: false })} onConfirm={() => { confirmation.onConfirm(); setConfirmation({ ...confirmation, isOpen: false }); }} title={confirmation.title} message={confirmation.message} />
         </div>
     );
 }
 
-// ====== MODAL PARA CREAR Y EDITAR PROPIEDADES (CON NUEVO LAYOUT Y FOTOS) ======
-function PropertyEditModal({ isOpen, onClose, onSave, property, showNotification }) {
-    const [formData, setFormData] = useState({});
-    const [tipos, setTipos] = useState([]);
-    const [localidades, setLocalidades] = useState([]);
-    const [photoFiles, setPhotoFiles] = useState([]); 
+// ====== MODAL PARA CREAR Y EDITAR PROPIEDADES ======
+function PropertyEditModal({ isOpen, onClose, onSave, property, showNotification, onDeleteExistingPhoto }) {
+	const [formData, setFormData] = useState({});
+	const [tipos, setTipos] = useState([]);
+	const [localidades, setLocalidades] = useState([]);
+	const [photoFiles, setPhotoFiles] = useState([]);
 
-    useEffect(() => {
-        const fetchDropdownData = async () => {
-            if (!isOpen) return;
-             try {
-                const [tiposRes, localidadesRes] = await Promise.all([
-                    fetch(`${API_BASE}/tipos-propiedad/getAllTiposPropiedad`),
-                    fetch(`${API_BASE}/localidades/getAllLocalidades`)
-                ]);
-                if (!tiposRes.ok || !localidadesRes.ok) throw new Error('No se pudieron cargar datos para el formulario.');
-                const tiposData = await tiposRes.json();
-                const localidadesData = await localidadesRes.json();
-                setTipos(tiposData);
-                setLocalidades(localidadesData);
-            } catch (error) {
-                console.error("Error cargando datos para el modal:", error);
-            }
-        };
-        fetchDropdownData();
-    }, [isOpen]);
+	useEffect(() => {
+		const fetchDropdownData = async () => {
+			if (!isOpen) return;
+			try {
+				const [tiposRes, localidadesRes] = await Promise.all([
+					fetch(`${API_BASE}/tipos-propiedad/getAllTiposPropiedad`),
+					fetch(`${API_BASE}/localidades/getAllLocalidades`)
+				]);
+				if (!tiposRes.ok || !localidadesRes.ok) throw new Error('No se pudieron cargar datos para el formulario.');
+				const tiposData = await tiposRes.json();
+				const localidadesData = await localidadesRes.json();
+				setTipos(tiposData);
+				setLocalidades(localidadesData);
+			} catch (error) {
+				console.error("Error cargando datos para el modal:", error);
+			}
+		};
+		fetchDropdownData();
+	}, [isOpen]);
 
-    useEffect(() => {
-        if (isOpen) {
-            setPhotoFiles([]);
-            if (property) {
-                setFormData({
-                    descripcion: property.descripcion || '', precio_por_noche: property.precio_por_noche || '',
-                    cantidad_huespedes: property.cantidad_huespedes || 1, calle: property.calle || '',
-                    numero: property.numero || '', latitud: property.latitud || '', longitud: property.longitud || '',
-                    id_tipo_propiedad: property.id_tipo_propiedad || '', id_localidad: property.id_localidad || '',
-                    reglas_de_la_casa: property.reglas_de_la_casa || '', estancia_minima: property.estancia_minima || 1,
-                });
-            } else {
-                 setFormData({
-                    descripcion: '', precio_por_noche: '', cantidad_huespedes: 1, calle: '', numero: '',
-                    latitud: '', longitud: '', id_tipo_propiedad: '', id_localidad: '',
-                    reglas_de_la_casa: '', estancia_minima: 1,
-                });
-            }
-        }
-    }, [property, isOpen]);
+	useEffect(() => {
+		if (isOpen) {
+			setPhotoFiles([]); // Limpia archivos nuevos al abrir el modal
+			if (property) {
+				setFormData({
+					descripcion: property.descripcion || '',
+					precio_por_noche: property.precio_por_noche || '',
+					cantidad_huespedes: property.cantidad_huespedes || 1,
+					calle: property.calle || '',
+					numero: property.numero || '',
+					latitud: property.latitud || '',
+					longitud: property.longitud || '',
+					id_tipo_propiedad: property.id_tipo_propiedad || '',
+					id_localidad: property.id_localidad || '',
+					reglas_de_la_casa: property.reglas_de_la_casa || '',
+					estancia_minima: property.estancia_minima || 1,
+				});
+			} else {
+				setFormData({
+					descripcion: '',
+					precio_por_noche: '',
+					cantidad_huespedes: 1,
+					calle: '',
+					numero: '',
+					latitud: '',
+					longitud: '',
+					id_tipo_propiedad: '',
+					id_localidad: '',
+					reglas_de_la_casa: '',
+					estancia_minima: 1,
+				});
+			}
+		}
+	}, [property, isOpen]);
 
-    if (!isOpen) return null;
+	if (!isOpen) return null;
 
-    const handleChange = (e) => {
-        const { name, value, type } = e.target;
-        const val = type === 'number' ? (value === '' ? '' : Number(value)) : value;
-        setFormData(prev => ({ ...prev, [name]: val }));
-    };
+	const handleChange = (e) => {
+		const { name, value, type } = e.target;
+		const val = type === 'number' ? (value === '' ? '' : Number(value)) : value;
+		setFormData(prev => ({ ...prev, [name]: val }));
+	};
 
-    const handleSave = () => {
-        if (!formData.descripcion || !formData.precio_por_noche || !formData.calle || !formData.numero || !formData.id_localidad || !formData.id_tipo_propiedad || !formData.cantidad_huespedes) {
-            showNotification("Por favor, completa todos los campos obligatorios (*).", "error"); 
-            return;
-        }
-        onSave(formData, photoFiles); 
-    };
+	const handleSave = () => {
+		if (!formData.descripcion || !formData.precio_por_noche || !formData.calle || !formData.numero || !formData.id_localidad || !formData.id_tipo_propiedad || !formData.cantidad_huespedes) {
+			showNotification("Por favor, completa todos los campos obligatorios (*).", "error"); 
+			return;
+		}
+		onSave(formData, photoFiles, setPhotoFiles); // Pasamos setPhotoFiles para limpiar después
+	};
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
-            {/* El tamaño del modal sigue siendo 'max-w-3xl' como en tu código original */}
-            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 md:p-8 my-8">
-                <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center" style={{ color: TEXT_DARK }}>{property ? 'Editar Propiedad' : 'Añadir Nueva Propiedad'}</h2>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                    {/* Fila 1 */}
-                    <div className="sm:col-span-2"><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Descripción *</label><input name="descripcion" value={formData.descripcion || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-                    {/* Fila 2 */}
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Precio por Noche *</label><input type="number" step="0.01" name="precio_por_noche" value={formData.precio_por_noche || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Huéspedes Máximos *</label><input type="number" min="1" name="cantidad_huespedes" value={formData.cantidad_huespedes || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-                    {/* Fila 3 */}
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Calle *</label><input name="calle" value={formData.calle || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Número *</label><input name="numero" value={formData.numero || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-                    {/* Fila 4 */}
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Tipo de Propiedad *</label><select name="id_tipo_propiedad" value={formData.id_tipo_propiedad || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 bg-white" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}><option value="" disabled>Selecciona un tipo</option>{tipos.map(tipo => (<option key={tipo.id_tipo_propiedad} value={tipo.id_tipo_propiedad}>{tipo.nombre}</option>))}</select></div>
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Localidad *</label><select name="id_localidad" value={formData.id_localidad || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 bg-white" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}><option value="" disabled>Selecciona una localidad</option>{localidades.map(loc => (<option key={loc.id_localidad} value={loc.id_localidad}>{loc.nombre}</option>))}</select></div>
-                    
-                    {/* --- INICIO DE LA REORGANIZACIÓN --- */}
+	return (
+		<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
+			<div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 md:p-8 my-8">
+				<h2 className="text-2xl md:text-3xl font-bold mb-6 text-center" style={{ color: TEXT_DARK }}>
+					{property ? 'Editar Propiedad' : 'Añadir Nueva Propiedad'}
+				</h2>
+				
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+					{/* --- Campos de la propiedad --- */}
+					<div className="sm:col-span-2">
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Descripción *</label>
+						<input name="descripcion" value={formData.descripcion || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Precio por Noche *</label>
+						<input type="number" step="0.01" name="precio_por_noche" value={formData.precio_por_noche || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Huéspedes Máximos *</label>
+						<input type="number" min="1" name="cantidad_huespedes" value={formData.cantidad_huespedes || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Calle *</label>
+						<input name="calle" value={formData.calle || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Número *</label>
+						<input name="numero" value={formData.numero || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Tipo de Propiedad *</label>
+						<select name="id_tipo_propiedad" value={formData.id_tipo_propiedad || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 bg-white" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}>
+							<option value="" disabled>Selecciona un tipo</option>
+							{tipos.map(tipo => (<option key={tipo.id_tipo_propiedad} value={tipo.id_tipo_propiedad}>{tipo.nombre}</option>))}
+						</select>
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Localidad *</label>
+						<select name="id_localidad" value={formData.id_localidad || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 bg-white" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}>
+							<option value="" disabled>Selecciona una localidad</option>
+							{localidades.map(loc => (<option key={loc.id_localidad} value={loc.id_localidad}>{loc.nombre}</option>))}
+						</select>
+					</div>
+					<div className="sm:col-span-2">
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Reglas de la Casa</label>
+						<textarea name="reglas_de_la_casa" value={formData.reglas_de_la_casa || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}></textarea>
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Latitud</label>
+						<input type="number" step="any" name="latitud" value={formData.latitud || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Longitud</label>
+						<input type="number" step="any" name="longitud" value={formData.longitud || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div>
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Estancia Mínima (noches)</label>
+						<input type="number" min="1" name="estancia_minima" value={formData.estancia_minima || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
+					</div>
+					<div className="sm:col-span-1">
+						<label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Fotos (Máx. 20)</label>
+						<PhotoUploader 
+							newFiles={photoFiles} 
+							setNewFiles={setPhotoFiles} 
+							existingPhotos={property?.fotos || []}
+							onDeleteExisting={onDeleteExistingPhoto}
+							propertyId={property?.id_propiedad}
+							maxFiles={20} 
+						/>
+					</div>
+				</div>
 
-                    {/* Fila 5 (Antes): Reglas de la Casa */}
-                    <div className="sm:col-span-2"><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Reglas de la Casa</label><textarea name="reglas_de_la_casa" value={formData.reglas_de_la_casa || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}></textarea></div>
-                    
-                    {/* Fila 6 (Antes): Latitud y Longitud */}
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Latitud</label><input type="number" step="any" name="latitud" value={formData.latitud || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-                    <div><label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Longitud</label><input type="number" step="any" name="longitud" value={formData.longitud || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} /></div>
-
-                    {/* Fila 7 (Nueva): Estancia Mínima y Uploader */}
-                    <div>
-                        <label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Estancia Mínima (noches)</label>
-                        <input type="number" min="1" name="estancia_minima" value={formData.estancia_minima || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }} />
-                    </div>
-                    <div className="sm:col-span-1">
-                         <label className="block text-sm font-semibold mb-1" style={{ color: TEXT_MUTED }}>Fotos (Máx. 20)</label>
-                         <PhotoUploader files={photoFiles} setFiles={setPhotoFiles} maxFiles={20} />
-                    </div>
-
-                    {/* --- FIN DE LA REORGANIZACIÓN --- */}
-                </div>
-
-                <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4">
-                    <button onClick={onClose} className="px-6 py-2 rounded-lg font-semibold border order-2 sm:order-1" style={{ color: TEXT_DARK, borderColor: TEXT_DARK }}>Cancelar</button>
-                    <button onClick={handleSave} className="px-6 py-2 rounded-lg font-semibold text-white order-1 sm:order-2" style={{ backgroundColor: GREEN_ACTION }}>{property ? 'Guardar Cambios' : 'Crear Propiedad'}</button>
-                </div>
-            </div>
-        </div>
-    );
+				<div className="mt-8 flex flex-col sm:flex-row justify-end gap-4">
+					<button onClick={onClose} className="px-6 py-2 rounded-lg font-semibold border order-2 sm:order-1" style={{ color: TEXT_DARK, borderColor: TEXT_DARK }}>Cancelar</button>
+					<button onClick={handleSave} className="px-6 py-2 rounded-lg font-semibold text-white order-1 sm:order-2" style={{ backgroundColor: GREEN_ACTION }}>{property ? 'Guardar Cambios' : 'Crear Propiedad'}</button>
+				</div>
+			</div>
+		</div>
+	);
 }
 
-// ====== NUEVO: COMPONENTE PARA CARGA DE FOTOS ======
-function PhotoUploader({ files, setFiles, maxFiles = 20 }) {
+// ====== COMPONENTE PARA CARGA DE FOTOS (ACTUALIZADO) ======
+function PhotoUploader({ newFiles, setNewFiles, existingPhotos = [], onDeleteExisting, propertyId, maxFiles = 20 }) {
     const [previews, setPreviews] = useState([]);
     const fileInputRef = React.useRef(null);
 
     useEffect(() => {
         const generatePreviews = async () => {
-             const newPreviews = [];
-             for (const file of files) {
-                 if (file.type.startsWith('image/')) {
-                     const preview = await readFileAsDataURL(file);
-                     newPreviews.push({ name: file.name, url: preview });
-                 }
-             }
-             setPreviews(newPreviews);
+            const existingPreviews = existingPhotos.map(photo => ({
+                id: photo.id_foto,
+                name: photo.nombre_foto,
+                url: photo.url_foto ? `${photo.url_foto}?f_auto,q_auto,dpr_auto` : undefined,
+                isExisting: true
+            }));
+
+            const newFilePreviews = [];
+            for (const file of newFiles) {
+                if (file.type.startsWith('image/')) {
+                    const previewUrl = await readFileAsDataURL(file);
+                    newFilePreviews.push({ name: file.name, url: previewUrl, isExisting: false });
+                }
+            }
+            setPreviews([...existingPreviews, ...newFilePreviews]);
         };
         generatePreviews();
-    }, [files]);
+    }, [newFiles, existingPhotos]);
 
     const readFileAsDataURL = (file) => {
         return new Promise((resolve, reject) => {
@@ -410,18 +528,18 @@ function PhotoUploader({ files, setFiles, maxFiles = 20 }) {
     };
 
     const handleFiles = (incomingFiles) => {
-        const newFiles = Array.from(incomingFiles);
-        if (files.length + newFiles.length > maxFiles) {
-            alert(`No puedes subir más de ${maxFiles} fotos.`);
+        const filesToAdd = Array.from(incomingFiles);
+        if (newFiles.length + existingPhotos.length + filesToAdd.length > maxFiles) {
+            alert(`No puedes subir más de ${maxFiles} fotos en total.`);
             return;
         }
-        setFiles(prev => [...prev, ...newFiles]);
+        setNewFiles(prev => [...prev, ...filesToAdd]);
     };
 
     const handleDrop = (e) => {
         e.preventDefault(); e.stopPropagation();
         e.currentTarget.style.borderColor = BORDER_COLOR;
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        if (e.dataTransfer.files?.length) {
             handleFiles(e.dataTransfer.files);
             e.dataTransfer.clearData();
         }
@@ -429,14 +547,21 @@ function PhotoUploader({ files, setFiles, maxFiles = 20 }) {
 
     const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor = PRIMARY_COLOR; };
     const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.borderColor = BORDER_COLOR; };
+    
     const handleSelectFiles = (e) => {
-        if (e.target.files && e.target.files.length > 0) {
+        if (e.target.files?.length) {
             handleFiles(e.target.files);
-            e.target.value = null;
+            e.target.value = null; 
         }
     };
 
-    const handleRemoveFile = (fileNameToRemove) => { setFiles(prev => prev.filter(file => file.name !== fileNameToRemove)); };
+    const handleRemove = (item) => {
+        if (item.isExisting) {
+            onDeleteExisting(item.id, propertyId);
+        } else {
+            setNewFiles(prev => prev.filter(file => file.name !== item.name));
+        }
+    };
 
     return (
         <div>
@@ -448,15 +573,21 @@ function PhotoUploader({ files, setFiles, maxFiles = 20 }) {
             >
                 <input type="file" multiple accept="image/*" onChange={handleSelectFiles} ref={fileInputRef} style={{ display: 'none' }} />
                  <UploadIcon />
-                <p style={{ color: TEXT_MUTED, marginTop:'8px' }}>Arrastra tus fotos aquí o haz clic (Máx. {maxFiles})</p>
+                <p style={{ color: TEXT_MUTED, marginTop:'8px' }}>Arrastra fotos o haz clic (Máx. {maxFiles})</p>
             </div>
 
             {previews.length > 0 && (
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                    {previews.map((preview, index) => (
-                        <div key={index} className="relative group">
-                            <img src={preview.url} alt={`Preview ${index}`} className="w-full h-20 object-cover rounded" />
-                            <button onClick={() => handleRemoveFile(preview.name)} className="absolute top-0 right-0 m-1 p-0.5 bg-red-600 text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Eliminar foto">&#x2715;</button>
+                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {previews.map((preview) => (
+                        <div key={preview.id || preview.name} className="relative group">
+                            <img src={preview.url} alt={preview.name} className="w-full h-20 object-cover rounded" />
+                            <button 
+                                onClick={() => handleRemove(preview)}
+                                className="absolute top-0 right-0 m-1 p-0.5 bg-red-600 text-white rounded-full text-xs leading-none opacity-0 group-hover:opacity-100 transition-opacity" 
+                                aria-label="Eliminar foto"
+                            >
+                                &#x2715;
+                            </button>
                         </div>
                     ))}
                 </div>

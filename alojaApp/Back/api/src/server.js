@@ -450,6 +450,7 @@ import cookieParser from "cookie-parser";
 import { connectDB, sequelize } from "./config/db.js";
 import apiRouter from "./routes/api/index.routes.js";
 
+import 'dotenv/config'; // para cargar variables de entorno
 
 const app = express();
 const PORT   = process.env.PORT;
