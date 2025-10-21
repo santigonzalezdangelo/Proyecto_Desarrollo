@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 
 const TEXT_DARK = "#0F172A";
@@ -12,7 +11,7 @@ export default function Navbar({
 }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // <- NUEVO
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const menuRef = useRef(null);
 
   // Detectar sesión
@@ -102,6 +101,27 @@ export default function Navbar({
               style={{ background: "#FFFFFF", borderColor: "rgba(0,0,0,0.06)" }}
             >
               <nav className="py-2">
+                {/* NUEVO: Inicio */}
+                <a
+                  role="menuitem"
+                  href="/"
+                  className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1"
+                  onClick={() => setOpen(false)}
+                >
+                  Inicio
+                </a>
+
+                {/* NUEVO: Conviértete en anfitrión */}
+                <a
+                  role="menuitem"
+                  href="/conviertete-en-anfitrion"
+                  className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1"
+                  onClick={() => setOpen(false)}
+                >
+                  Conviértete en anfitrión
+                </a>
+
+                {/* Opciones existentes */}
                 <a role="menuitem" href="/perfil" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
                   Perfil
                 </a>

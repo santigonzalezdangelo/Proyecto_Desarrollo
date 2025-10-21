@@ -87,6 +87,7 @@ export function isSearchDisabled({ location, checkIn, checkOut, guests }) {
 
 
 // ====== Cards (Home: destacadas) ======
+// ====== Cards (Home: destacadas) ======
 function DestinationsGrid() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,11 +95,44 @@ function DestinationsGrid() {
   useEffect(() => {
     async function fetchProperties() {
       try {
-        const res = await fetch("http://localhost:4000/propiedades/destacadas");
-        const data = await res.json();
-        setItems(Array.isArray(data) ? data : []);
+        // Si usás Vite, podés definir VITE_API_URL=http://localhost:4000
+        const BASE =
+          (typeof import.meta !== "undefined" &&
+            import.meta.env &&
+            import.meta.env.VITE_API_URL) ||
+          "http://localhost:4000";
+
+        const res = await fetch(`${BASE}/api/properties/destacadas`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const json = await res.json();
+        // Acepta array plano o { data: [...] }
+        const raw = Array.isArray(json) ? json : (json && Array.isArray(json.data) ? json.data : []);
+
+        // Normalizamos campos para que PropertyCard no falle si cambia el shape
+        const arr = (raw || []).map((p, i) => ({
+          ...p,
+          _titulo:
+            p.titulo ||
+            p.nombre ||
+            (p.localidad ? `Alojamiento en ${p.localidad}` : "Propiedad"),
+          _imagen:
+            p.imagen_url ||
+            p.imagen_principal ||
+            p.url_foto ||
+            "https://via.placeholder.com/400x250?text=AlojaApp",
+          _sub: `${p.ciudad ? p.ciudad : ""}${p.pais ? (p.ciudad ? ", " : "") + p.pais : ""}`,
+          _key: p.id_propiedad || p.id || `prop-${i}`,
+          _rating: Number(p.rating != null ? p.rating : (p.puntuacion != null ? p.puntuacion : 0)),
+          _loc: p.localidad || "",
+        }));
+
+        setItems(arr);
       } catch (err) {
-        console.error("Error cargando propiedades:", err);
+        console.error("Error cargando propiedades destacadas:", err);
+        setItems([]);
       } finally {
         setLoading(false);
       }
@@ -114,7 +148,7 @@ function DestinationsGrid() {
     );
   }
 
-  if (items.length === 0) {
+  if (!items.length) {
     return (
       <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
         No se encontraron propiedades destacadas.
@@ -128,17 +162,18 @@ function DestinationsGrid() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {items.map((p) => (
           <PropertyCard
-            key={p.id_propiedad || `${p.titulo}-${p.localidad}`}
-            image={p.imagen_url || "https://via.placeholder.com/400x250?text=AlojaApp"}
-            title={`${p.titulo ?? "Propiedad"} – ${p.localidad ?? ""}`}
-            subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`} 
-            rating={Number(p.rating ?? p.puntuacion ?? 0)}
+            key={p._key}
+            image={p._imagen}
+            title={`${p._titulo}${p._loc ? " – " + p._loc : ""}`}
+            subtitle={p._sub}
+            rating={p._rating}
           />
         ))}
       </div>
     </section>
   );
 }
+
 
 function Footer() {
   return (
@@ -188,15 +223,24 @@ export default function Home() {
         messenger.style.setProperty("--df-messenger-font-color", "#0F172A");
         messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
         messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D");
+        // que el chatbot flote por encima del navbar
+        messenger.style.position = "fixed";
+        messenger.style.zIndex = "9999";
+        // (opcional) asegurar ubicación del botón flotante
+        messenger.style.right = "16px";
+        messenger.style.bottom = "16px";
 
         document.body.appendChild(messenger);
       };
     } else {
       // si ya existe, mostralo
       const messenger = document.querySelector("df-messenger");
-      if (messenger) messenger.style.display = "block";
+      if (messenger) {
+        messenger.style.display = "block";
+        messenger.style.position = "fixed";
+        messenger.style.zIndex = "9999";
+      }
     }
-
     // cleanup: ocultar al salir de Home
     return () => {
       const messenger = document.querySelector("df-messenger");
