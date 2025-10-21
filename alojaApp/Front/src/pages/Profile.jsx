@@ -17,22 +17,23 @@ export default function Profile() {
 
 // src/pages/Profile.jsx
 // ------------------------------------------------------------
-// Página de Perfil (mockeada) para AlojaApp
-// - Estética alineada al Home/NavBar (amarillo #F8C24D)
-// - Carga mock desde /public/mock/user_profile.json (si no existe, usa FALLBACK)
-// - Permite editar campos salvo el correo (correo bloqueado)
-// - Deja escrita (comentada) la conexión real a la API
+// Perfil mock – estética alineada al Home (sin imágenes)
+// - Fondo crema (#FFF6DB), títulos fuertes, tarjetas blancas con sombra
+// - Botones con PRIMARY (#F8C24D)
+// - Correo NO editable, rol oculto
+// - Acciones (Editar/Cancelar/Guardar) a la DERECHA en el header
+// - API real comentada; mock desde /public/mock/user_profile.json
 // ------------------------------------------------------------
 
 import React, { useEffect, useMemo, useState } from "react";
 import Navbar from "../components/NavBar";
 
-// ====== Tema / tokens (alineado con Home.jsx) ======
+// ====== Tema / tokens ======
 const PRIMARY = "#F8C24D";
 const TEXT_DARK = "#0F172A";
 const TEXT_MUTED = "#334155";
-const PAGE_BG = PRIMARY; // fondo general
-const NAV_HEIGHT = 72;   // alto navbar
+const PAGE_BG = "#FFF6DB";   // igual que Home
+const NAV_HEIGHT = 72;
 
 // ====== Endpoints (mock + real comentado) ======
 const MOCK_URL = "/mock/user_profile.json"; // poné este JSON en public/mock/
@@ -63,7 +64,6 @@ function validate(values) {
   if (!values.correo?.trim()) errs.correo = "Requerido";
   if (values.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.correo)) errs.correo = "Correo inválido";
   if (values.cbu && !/^\d{22}$/.test(onlyDigits(values.cbu))) errs.cbu = "CBU debe tener 22 dígitos";
-  // Teléfonos (si están): número requerido, códigos opcionales
   const telErrs = (values.telefonos || []).map((t) => {
     const te = {};
     if (!t.numero?.trim()) te.numero = "Requerido";
@@ -75,7 +75,7 @@ function validate(values) {
   return errs;
 }
 
-// ====== Mock fallback (por si no existe el archivo en /public) ======
+// ====== Mock fallback ======
 const FALLBACK = {
   id_usuario: 1,
   nombre: "Natalia",
@@ -92,9 +92,7 @@ const FALLBACK = {
     nombre_localidad: "Villa Elisa",
     ciudad: { id_ciudad: 7, nombre_ciudad: "La Plata", pais: { id_pais: 1, nombre_pais: "Argentina" } },
   },
-  telefonos: [
-    { id_telefono: 1, codigo_pais: "54", codigo_area: "221", numero: "5551234" }
-  ],
+  telefonos: [{ id_telefono: 1, codigo_pais: "54", codigo_area: "221", numero: "5551234" }],
 };
 
 export default function Profile() {
@@ -113,37 +111,27 @@ export default function Profile() {
     async function load() {
       setLoading(true); setError("");
       try {
-        // 1) Intentar mock desde /public/mock/user_profile.json
         const res = await fetch(MOCK_URL, { cache: "no-store" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const json = await res.json();
-        if (!cancelled) {
-          setData(json || FALLBACK);
-          setForm(json || FALLBACK);
-        }
+        if (!cancelled) { setData(json || FALLBACK); setForm(json || FALLBACK); }
       } catch (e) {
-        console.warn("[Perfil] No se pudo cargar el mock, usando FALLBACK:", e?.message);
-        if (!cancelled) {
-          setData(FALLBACK);
-          setForm(FALLBACK);
-        }
+        console.warn("[Perfil] mock no disponible, usando FALLBACK:", e?.message);
+        if (!cancelled) { setData(FALLBACK); setForm(FALLBACK); }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     load();
-
     return () => { cancelled = true; };
   }, []);
 
-  const title = useMemo(() => {
-    return `${data?.nombre ?? "Usuario"} ${data?.apellido ?? ""}`.trim();
-  }, [data]);
+  const title = useMemo(
+    () => `${data?.nombre ?? "Usuario"} ${data?.apellido ?? ""}`.trim(),
+    [data]
+  );
 
-  function onChange(field, value) {
-    setForm((f) => ({ ...f, [field]: value }));
-  }
-
+  function onChange(field, value) { setForm((f) => ({ ...f, [field]: value })); }
   function onChangeTel(idx, field, value) {
     setForm((f) => {
       const copy = [...(f.telefonos || [])];
@@ -151,19 +139,9 @@ export default function Profile() {
       return { ...f, telefonos: copy };
     });
   }
-
-  function addPhone() {
-    setForm((f) => ({ ...f, telefonos: [...(f.telefonos || []), { codigo_pais: "", codigo_area: "", numero: "" }] }));
-  }
-  function removePhone(idx) {
-    setForm((f) => ({ ...f, telefonos: (f.telefonos || []).filter((_, i) => i !== idx) }));
-  }
-
-  function cancelEdit() {
-    setForm(data);
-    setErrs({});
-    setEdit(false);
-  }
+  function addPhone() { setForm((f) => ({ ...f, telefonos: [...(f.telefonos || []), { codigo_pais: "", codigo_area: "", numero: "" }] })); }
+  function removePhone(idx) { setForm((f) => ({ ...f, telefonos: (f.telefonos || []).filter((_, i) => i !== idx) })); }
+  function cancelEdit() { setForm(data); setErrs({}); setEdit(false); }
 
   async function save() {
     const v = validate(form);
@@ -172,8 +150,7 @@ export default function Profile() {
 
     setSaving(true);
     try {
-      // =======================================
-      // Conexión real (dejada escrita y comentada)
+      // // Conexión real (dejada escrita)
       // const res = await fetch(PROFILE_URL, {
       //   method: "PUT",
       //   headers: { "Content-Type": "application/json" },
@@ -184,9 +161,8 @@ export default function Profile() {
       // const updated = await res.json();
       // setData(updated);
       // setForm(updated);
-      // =======================================
 
-      // Simulación local (como si la API respondiera OK)
+      // Simulación local
       await new Promise((r) => setTimeout(r, 600));
       setData(form);
       setEdit(false);
@@ -203,41 +179,34 @@ export default function Profile() {
     <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh", paddingTop: NAV_HEIGHT + 16 }}>
       <Navbar active="perfil" />
 
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        {/* Header */}
-        <section className="mb-6 flex items-center gap-4">
-          <div
-            className="rounded-2xl shadow-md bg-white p-4 flex items-center gap-4"
-            style={{ minWidth: 0 }}
-          >
-            <div
-              className="rounded-2xl flex items-center justify-center"
-              style={{ width: 72, height: 72, background: "#FFF4D0", color: TEXT_DARK, fontWeight: 800, fontSize: 22 }}
-            >
-              {initialsOf(data?.nombre, data?.apellido)}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-extrabold" style={{ color: TEXT_DARK }}>{title || "Perfil"}</h1>
-              <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                Miembro desde {new Date(data?.fecha_creacion || Date.now()).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          <div className="flex-1" />
+      {/* Header con acciones a la derecha */}
+      <header className="mx-auto max-w-7xl px-4 pt-8 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        {/* Título a la izquierda */}
+        <div>
+          <h1 className="text-3xl md:text-4xl font-extrabold leading-tight" style={{ color: TEXT_DARK }}>
+            Tu perfil
+          </h1>
+          <p className="mt-2 text-base md:text-lg" style={{ color: TEXT_MUTED }}>
+            Gestioná tus datos personales y de contacto.
+          </p>
+        </div>
+
+        {/* Acciones a la derecha */}
+        <div className="flex items-center gap-2">
           {!edit ? (
             <button
               onClick={() => setEdit(true)}
-              className="px-4 py-2 rounded-xl font-semibold shadow-md transition hover:shadow-lg"
+              className="px-4 py-2 rounded-xl font-semibold shadow-sm transition hover:shadow-md"
               style={{ backgroundColor: PRIMARY, color: TEXT_DARK }}
             >
               Editar perfil
             </button>
           ) : (
-            <div className="flex items-center gap-2">
+            <>
               <button
                 onClick={cancelEdit}
-                className="px-4 py-2 rounded-xl font-semibold border"
-                style={{ backgroundColor: "white", color: TEXT_DARK, borderColor: "rgba(0,0,0,0.08)" }}
+                className="px-4 py-2 rounded-xl font-semibold border transition hover:shadow-sm"
+                style={{ background: "white", color: TEXT_DARK, borderColor: "rgba(0,0,0,0.08)" }}
               >
                 Cancelar
               </button>
@@ -245,28 +214,48 @@ export default function Profile() {
                 onClick={save}
                 disabled={saving}
                 className={classNames(
-                  "px-4 py-2 rounded-xl font-semibold shadow-md transition",
-                  saving ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"
+                  "px-4 py-2 rounded-xl font-semibold shadow-sm transition",
+                  saving ? "opacity-60 cursor-not-allowed" : "hover:shadow-md"
                 )}
                 style={{ backgroundColor: PRIMARY, color: TEXT_DARK }}
               >
                 {saving ? "Guardando…" : "Guardar cambios"}
               </button>
-            </div>
+            </>
           )}
-        </section>
+        </div>
+      </header>
 
+      <main className="mx-auto max-w-7xl px-4 pb-10">
         {error && (
-          <div className="mb-4 rounded-xl border px-4 py-3 text-sm" style={{ background: "#FFF2F2", borderColor: "#FCA5A5", color: "#991B1B" }}>
+          <div className="mb-4 rounded-xl border px-4 py-3 text-sm"
+               style={{ background: "#FFF2F2", borderColor: "#FCA5A5", color: "#991B1B" }}>
             {error}
           </div>
         )}
 
-        {/* Card principal */}
+        {/* Contenido */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda: datos personales */}
+          {/* Datos personales */}
           <div className="lg:col-span-2 rounded-2xl bg-white shadow-md p-5 overflow-hidden">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: TEXT_DARK }}>Datos personales</h2>
+            <div className="mb-5 flex items-center gap-4">
+              <div
+                className="rounded-2xl flex items-center justify-center"
+                style={{ width: 72, height: 72, background: "#FFF4D0", color: TEXT_DARK, fontWeight: 800, fontSize: 22 }}
+              >
+                {initialsOf(data?.nombre, data?.apellido)}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-2xl font-extrabold" style={{ color: TEXT_DARK }}>
+                  {title || "Perfil"}
+                </h2>
+                <p className="text-sm" style={{ color: TEXT_MUTED }}>
+                  Miembro desde {new Date(data?.fecha_creacion || Date.now()).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-semibold mb-4" style={{ color: TEXT_DARK }}>Datos personales</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Nombre" value={form.nombre} onChange={(v) => onChange("nombre", v)} disabled={!edit} error={errs.nombre} />
               <Field label="Apellido" value={form.apellido} onChange={(v) => onChange("apellido", v)} disabled={!edit} error={errs.apellido} />
@@ -287,7 +276,7 @@ export default function Profile() {
 
             {/* Teléfonos */}
             <div className="mt-6">
-              <h3 className="text-base font-semibold mb-2" style={{ color: TEXT_DARK }}>Teléfonos</h3>
+              <h3 className="text-lg font-semibold mb-2" style={{ color: TEXT_DARK }}>Teléfonos</h3>
               <div className="space-y-3">
                 {(form.telefonos || []).map((t, idx) => {
                   const terr = (errs.telefonos && errs.telefonos[idx]) || {};
@@ -296,49 +285,23 @@ export default function Profile() {
                     <div key={idx} className="grid grid-cols-12 gap-3 sm:flex sm:items-end sm:gap-3">
                       {/* Código país */}
                       <div className="col-span-4 sm:w-28">
-                        <Field
-                          small
-                          label="Código país"
-                          value={t.codigo_pais || ""}
-                          onChange={(v) => onChangeTel(idx, "codigo_pais", onlyDigits(v))}
-                          disabled={!edit}
-                          error={terr.codigo_pais}
-                          placeholder="54"
-                        />
+                        <Field small label="Código país" value={t.codigo_pais || ""} onChange={(v) => onChangeTel(idx, "codigo_pais", onlyDigits(v))} disabled={!edit} error={terr.codigo_pais} placeholder="54" />
                       </div>
-
                       {/* Código área */}
                       <div className="col-span-4 sm:w-32">
-                        <Field
-                          small
-                          label="Código área"
-                          value={t.codigo_area || ""}
-                          onChange={(v) => onChangeTel(idx, "codigo_area", onlyDigits(v))}
-                          disabled={!edit}
-                          error={terr.codigo_area}
-                          placeholder="221"
-                        />
+                        <Field small label="Código área" value={t.codigo_area || ""} onChange={(v) => onChangeTel(idx, "codigo_area", onlyDigits(v))} disabled={!edit} error={terr.codigo_area} placeholder="221" />
                       </div>
-
                       {/* Número */}
                       <div className="col-span-12 sm:flex-1 min-w-0">
-                        <Field
-                          label="Número"
-                          value={t.numero || ""}
-                          onChange={(v) => onChangeTel(idx, "numero", onlyDigits(v))}
-                          disabled={!edit}
-                          error={terr.numero}
-                          placeholder="5551234"
-                        />
+                        <Field label="Número" value={t.numero || ""} onChange={(v) => onChangeTel(idx, "numero", onlyDigits(v))} disabled={!edit} error={terr.numero} placeholder="5551234" />
                       </div>
-
                       {/* Botón eliminar */}
                       {edit && (
                         <div className="col-span-12 sm:w-auto sm:self-end">
                           <button
                             type="button"
                             onClick={() => removePhone(idx)}
-                            className="px-3 py-2 rounded-xl border text-sm whitespace-nowrap shrink-0"
+                            className="px-3 py-2 rounded-xl border text-sm whitespace-nowrap shrink-0 transition hover:shadow-sm"
                             style={{ background: "white", color: TEXT_DARK, borderColor: "rgba(0,0,0,0.08)" }}
                           >
                             Eliminar
@@ -352,7 +315,7 @@ export default function Profile() {
                   <button
                     type="button"
                     onClick={addPhone}
-                    className="px-3 py-2 rounded-xl font-semibold border text-sm"
+                    className="px-3 py-2 rounded-xl font-semibold border text-sm transition hover:shadow-sm"
                     style={{ background: "white", color: TEXT_DARK, borderColor: "rgba(0,0,0,0.08)" }}
                   >
                     + Agregar teléfono
@@ -362,9 +325,9 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Columna derecha: ubicación y meta */}
+          {/* Resumen */}
           <aside className="rounded-2xl bg-white shadow-md p-5 space-y-4">
-            <h2 className="text-lg font-semibold" style={{ color: TEXT_DARK }}>Ubicación</h2>
+            <h3 className="text-lg font-semibold" style={{ color: TEXT_DARK }}>Resumen</h3>
             <KeyValue label="Localidad" value={data?.localidad?.nombre_localidad || "—"} />
             <KeyValue label="Ciudad" value={data?.localidad?.ciudad?.nombre_ciudad || "—"} />
             <KeyValue label="País" value={data?.localidad?.ciudad?.pais?.nombre_pais || "—"} />
@@ -375,7 +338,7 @@ export default function Profile() {
         </section>
       </main>
 
-      <footer className="mt-16 border-t border-black/10" style={{ backgroundColor: "#FFF4D0" }}>
+      <footer className="mt-6 border-t border-black/10" style={{ backgroundColor: "#FFF4D0" }}>
         <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-slate-700 flex items-center justify-between">
           <span>© {new Date().getFullYear()} AlojaApp</span>
         </div>
