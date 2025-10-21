@@ -1,6 +1,6 @@
 // src/dao/user.dao.js
 import PostgresDAO from "./postgres.dao.js";
-import { userModel, roleModel } from "../models/associations.js";
+import { userModel, roleModel, localidadModel, ciudadModel, paisModel } from "../models/associations.js";
 
 class UserDAO extends PostgresDAO {
   constructor() {
@@ -32,13 +32,38 @@ class UserDAO extends PostgresDAO {
     try {
       return await this.model.findOne({
         where: { id_usuario },
-        include: [{ model: roleModel, as: "rol", required: false }],
+        include: [
+          { model: roleModel, as: "rol", required: false },
+          {
+            model: localidadModel,
+            as: "localidad",
+            required: false,
+            include: [
+              {
+                model: ciudadModel,
+                as: "ciudad",
+                required: false,
+                include: [{ model: paisModel, as: "pais", required: false }],
+              },
+            ],
+          },
+        ],
       });
     } catch (error) {
       console.error("Error in UserDAO.findById:", error);
       throw error;
     }
   };
+
+  updateById = async (id_usuario, data) => {
+    try {
+      return await this.model.update(data, { where: { id_usuario } });
+    } catch (error) {
+      console.error("Error in UserDAO.updateById:", error);
+      throw error;
+    }
+  };
+
 }
 
 export default new UserDAO();
