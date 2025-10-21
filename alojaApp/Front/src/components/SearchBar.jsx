@@ -3,6 +3,8 @@ import SearchButton from "./SearchButton";
 
 const TEXT_MUTED = "#334155";
 const NAV_HEIGHT = 72;
+const STICK_OFFSET = 5; // píxeles extra cuando queda pegada arriba
+
 
 // Alturas unificadas para TODOS los campos/botón
 const FIELD_H = 56;          // normal
@@ -206,8 +208,8 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
           position: "fixed",
           left: 0,
           right: 0,
-          top: `${Math.max(anchorTop - window.scrollY, 0)}px`,
-          zIndex: 100,
+          top: `${Math.max(anchorTop - window.scrollY, 0) + STICK_OFFSET}px`,
+          zIndex: 1100,
           background: "transparent",
           transition: "top 240ms cubic-bezier(0.22,0.61,0.36,1)",
           display: "flex",
