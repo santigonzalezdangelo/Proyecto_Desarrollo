@@ -178,6 +178,15 @@ export default function Reserva() {
               {propiedad.localidad}, {propiedad.ciudad}, {propiedad.pais}
             </p>
             <p className="font-semibold">💰 ${propiedad.precio_por_noche} por noche</p>
+
+            {propiedad.puntuacion_promedio > 0 && (
+              <p className="text-lg text-yellow-600 font-semibold flex items-center gap-2">
+                ⭐ {Number(propiedad.puntuacion_promedio).toFixed(1)} / 5
+                <span className="text-sm text-slate-700">
+                  ({propiedad.calificaciones?.length || 0} reseñas)
+                </span>
+              </p>
+            )}
           </section>
 
           {/* DERECHA: FORMULARIO */}
@@ -224,6 +233,73 @@ export default function Reserva() {
             />
           </section>
         </main>
+
+        {/* 🗺️ mapa + anfitrión + comentarios */}
+        <section className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-10 items-start">
+          {/* 🗺️ mapa */}
+          <div className="relative z-0">
+            <MapView
+              lat={parseFloat(propiedad.latitud)}
+              lng={parseFloat(propiedad.longitud)}
+              title={propiedad.nombre_de_fantasia}
+            />
+          </div>
+
+          {/* 🧍 anfitrión + comentarios */}
+          <div className="flex flex-col gap-8 justify-start bg-[#FFF6DB] p-4 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <img
+                src="https://via.placeholder.com/150?text=Anfitrion"
+                alt={propiedad.anfitrion?.nombre}
+                className="w-24 h-24 rounded-full object-cover shadow-md"
+              />
+              <div>
+                <h4 className="font-semibold text-lg">
+                  Anfitrión: {propiedad.anfitrion?.nombre} {propiedad.anfitrion?.apellido}
+                </h4>
+              </div>
+            </div>
+
+            {propiedad.calificaciones?.length > 0 && (
+              <div className="border-t border-black/10 pt-4">
+                <h3 className="text-xl font-semibold mb-2">Comentarios</h3>
+                {propiedad.calificaciones.map((c) => (
+                  <div key={c.id_calificacion || Math.random()} className="flex items-start gap-3 mb-4">
+                    <img
+                      src="https://randomuser.me/api/portraits/women/44.jpg"
+                      alt="Huésped"
+                      className="w-12 h-12 rounded-full object-cover shadow-sm"
+                    />
+                    <div>
+                      <p className="font-semibold text-slate-800">⭐ {c.puntuacion}</p>
+                      <p className="text-slate-700 mt-1 italic">"{c.comentario}"</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {new Date(c.fecha).toLocaleDateString("es-AR")}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 🌟 recomendados */}
+        <section className="max-w-6xl mx-auto px-4 py-12">
+          <h3 className="text-2xl font-bold mb-6">Recomendados para vos</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {recomendadas.map((r) => (
+              <PropertyCard
+                key={r.id_propiedad}
+                id_propiedad={r.id_propiedad}
+                image={r.imagen_url}
+                title={r.titulo}
+                subtitle={r.subtitulo}
+                rating={r.rating}
+              />
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );
