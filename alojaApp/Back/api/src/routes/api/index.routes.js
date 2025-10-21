@@ -5,7 +5,9 @@ import rolesRoutes from "./roles.router.js";
 import usersRoutes from "./user.router.js";
 import reservationRouter from "./reservations.router.js";
 import stateRouter from "./state.router.js";
-import propertiesRoutes from "./properties.router.js";
+import propertyRouter from "./properties.router.js";
+import tipoPropiedadRouter from './tiposPropiedad.router.js';
+import localidadRouter from './localidad.router.js';
 
 const router = Router();
 
@@ -14,5 +16,8 @@ router.use("/roles", rolesRoutes); // /api/roles/...
 router.use("/users", usersRoutes); // /api/users/:id/updateRole
 router.use("/reservations", reservationRouter); // /api/reservations/...
 router.use("/states", stateRouter); // /api/states/...
-router.use("/properties", propertiesRoutes); // /api/properties/available | /featured
+router.use("/properties", propertyRouter); // /api/properties/...
+router.use("/tipos-propiedad", tipoPropiedadRouter); // /api/tipo-propiedades/...
+router.use("/localidades", localidadRouter); // /api/localidades/...
+
 export default router;
