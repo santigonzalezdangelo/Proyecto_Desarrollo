@@ -284,7 +284,7 @@ return (
         />
 
         {/* Contenido */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-28 flex flex-col gap-6">
+        <div className="relative max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-28 flex flex-col gap-6">
           <h1 className="text-4xl md:text-5xl font-extrabold leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.55)]">
             Encontrá alojamientos en alquiler
           </h1>
@@ -297,11 +297,11 @@ return (
           {/* Ancla para posicionar la SearchBar */}
           <div ref={searchAnchorRef} />
 
-          <div className="mt-4">
+          <div className="mt-4" style={{ position: "relative", zIndex: 1000 }}>
             <SearchBar
               variant="floating"
               anchorRef={searchAnchorRef}
-              navbarHeight={NAV_HEIGHT}
+              navbarHeight={0}     
               onSearch={handleSearch}
             />
           </div>
