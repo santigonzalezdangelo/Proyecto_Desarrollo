@@ -234,7 +234,7 @@ export default function Reserva() {
           </section>
         </main>
 
-        {/* 🗺️ mapa + anfitrión + comentarios */}
+        {/* 🗺️ mapa + anfitrión + comentarioss */}
         <section className="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-10 items-start">
           {/* 🗺️ mapa */}
           <div className="relative z-0">
