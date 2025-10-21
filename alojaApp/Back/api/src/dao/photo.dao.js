@@ -49,7 +49,7 @@ class PhotoDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
-
+  
   // 🔄 Marcar una foto como principal
   setPrincipal = async (id_foto, id_propiedad) => {
     try {
@@ -66,6 +66,19 @@ class PhotoDAO extends PostgresDAO {
       );
     } catch (error) {
       console.error("Error setting photo as principal:", error);
+      throw new Error(error);
+    }
+  };
+  
+  // Obtener la foto principal de una propiedad
+  getPrincipalByPropertyId = async (id_propiedad) => {
+    try {
+      return await this.model.findOne({
+        where: { id_propiedad, principal: true },
+        attributes: ['id_foto'], // solo traemos el id
+      });
+    } catch (error) {
+      console.error("Error fetching principal photo:", error);
       throw new Error(error);
     }
   };
