@@ -19,8 +19,8 @@ class AuthController {
 
   register = async (req, res) => {
       try {
-        const { correo, password, id_rol } = req.body ?? {};
-        if (!correo || !password || (id_rol === undefined || id_rol === null)) {
+        const { correo, password, id_rol, nombre, apellido, dni } = req.body ?? {};
+        if (!correo || !password || (id_rol === undefined || id_rol === null) || !nombre || !apellido || !dni) {
           return res
             .status(400)
             .json({ error: "correo, password e id_rol son requeridos" });
@@ -48,12 +48,18 @@ class AuthController {
           correo: email,
           password: hashed,   
           id_rol: roleId,
+          nombre: nombre,
+          apellido: apellido,
+          dni:dni,
         });
 
         return res.status(201).json({
           id: created.id ?? created.id_usuario,
           correo: created.correo,
           id_rol: created.id_rol,
+          nombre: created.nombre,
+          apellido: created.apellido,
+          dni: created.dni,
         });
       } catch (error) {
         // errores comunes
