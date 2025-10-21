@@ -5,6 +5,6 @@ import { reservationController } from "../../controllers/reservation.controller.
 const router = Router();
 
 router.post("/createReservation", reservationController.create);
-router.get("/myReservations/:id", reservationController.getMine);
+router.get("/myReservations/:id_usuario", reservationController.getMine);
 
 export default router;

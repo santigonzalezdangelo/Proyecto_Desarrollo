@@ -1,12 +1,6 @@
 import { UserDAO}   from "../dao/user.dao.js";
 
 
-/**
- * PUT /api/users/:id/updateRole
- * Cambia el rol de un usuario al rol indicado por id_rol o nombre_rol.
- * Requiere permisos (ej: 'anfitrion').
- */
-
 class UserController {
   findById = async (req, res) => {
   try {
