@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 // ====== CONFIGURACIÓN DE LA API (con Fetch) ======
-const API_BASE = import.meta.env?.VITE_API_BASE || 'http://localhost:4000/api'; 
+const API_BASE = import.meta.env?.VITE_API_URL || 'http://localhost:4000/api'; 
 
 // ====== TEMA / TOKENS DE COLOR ======
 const PRIMARY_COLOR = "#F8C24D"; 
