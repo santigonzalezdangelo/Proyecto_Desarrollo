@@ -46,44 +46,24 @@ class ReservationDAO {
     return reserva;
   };
 
-  // findByUser = async (id_usuario) => {
-  //   return await reservaModel.findAll({
-  //     where: { id_usuario },
-  //     attributes: [
-  //       "id_reserva",
-  //       "fecha_inicio",
-  //       "fecha_fin",
-  //       "cantidad_dias",
-  //       "precio_final",
-  //       "id_propiedad",
-  //       "id_estado",
-  //     ],
-  //     include: [
-  //       {
-  //         model: propiedadModel,
-  //         attributes: ["id_propiedad", "descripcion", "precio_por_noche", "calle", "numero", "id_localidad"],
-  //       },
-  //       {
-  //         model: estadoModel,
-  //         attributes: ["id_estado", "nombre"],
-  //       },
-  //     ],
-  //     order: [["fecha_inicio", "DESC"]],
-  //   });
-  // };
-
-  findCardsByUser = async (id_usuario) => {
+  findMine = async (id_usuario) => {
     return await reservationModel.findAll({
       where: { id_usuario },
-      attributes: ["id_reserva", "fecha_inicio", "fecha_fin", "cantidad_dias", "precio_final"],
+      attributes: [
+        "id_reserva",
+        "fecha_inicio",
+        "fecha_fin",
+        "cantidad_dias",
+        "precio_final",
+        "id_propiedad",
+      ],
       include: [
-        { model: propertyModel, as: "propiedad", attributes: ["descripcion", "precio_por_noche"] },
-        { model: stateModel,    as: "estado",    attributes: ["nombre"] },
+        { model: propertyModel, as: "propiedad", attributes: ["id_propiedad", "descripcion", "precio_por_noche"] },
+        { model: stateModel,    as: "estado",    attributes: ["id_estado", "nombre_estado"] },
       ],
       order: [["fecha_inicio", "DESC"]],
     });
   };
 
 }
-
 export const reservationDao = new ReservationDAO();
