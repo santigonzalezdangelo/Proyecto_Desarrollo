@@ -29,7 +29,7 @@ const PRIMARY = "#F8C24D";
 const TEXT_DARK = "#0F172A";
 const TEXT_MUTED = "#334155";
 const CARD_BG = "#FFFFFF";
-const PAGE_BG = PRIMARY;
+const PAGE_BG = "#FFF6DB"; // crema claro del resto del sitio
 
 // Alturas para controlar “fusión” con Navbar
 const NAV_HEIGHT = 72;        // alto visible de tu navbar
@@ -212,29 +212,59 @@ export default function Home() {
 return (
     <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh", paddingTop: `${NAV_HEIGHT + 16}px` }}>
       <Navbar active="inicio" />
-      {/* ...tu contenido tal cual... */}
-      <section className="mx-auto max-w-7xl px-4 pt-10 pb-8">
-        <h1 className="text-4xl md:text-5xl font-extrabold leading-tight" style={{ color: TEXT_DARK }}>
-          Encontrá alojamientos en alquiler
-        </h1>
-        <p className="mt-3 text-lg max-w-2xl" style={{ color: TEXT_MUTED }}>
-          Explorá los mejores lugares para hospedarte. Inspirado en experiencias de Airbnb y Booking.
-        </p>
-        {/* Ancla: donde descansa la barra grande en el héroe */}
-        <div ref={searchAnchorRef} />
+      {}
+      {/* HERO con imagen de fondo + fade */}
+      <section className="relative w-full" style={{ minHeight: "62vh", paddingTop: 8 }}>
+        {/* Imagen */}
+        <div
+          className="absolute inset-0 bg-center bg-cover"
+          style={{ backgroundImage: 'url(/images/fondoHome.png)' }}
+          aria-hidden="true"
+        />
 
-        <div className="mt-6">
-          <SearchBar
-            mode="floating"                // ← En otras páginas usá mode="fixed"
-            anchorRef={searchAnchorRef}    // ← Sólo en Home (para el scroll suave)
-            navbarHeight={NAV_HEIGHT}      // ← para alinearla con el navbar
-            onSearch={handleSearch}
-          />
+        {/* Overlay amarillo (más suave) */}
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: "rgba(248,194,77,0.35)" }}
+          aria-hidden="true"
+        />
+
+        {/* Fade inferior hacia el color del body */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-40"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,246,219,0.85) 65%, #FFF6DB 100%)",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Contenido */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-28 flex flex-col gap-6">
+          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.55)]">
+            Encontrá alojamientos en alquiler
+          </h1>
+
+          <p className="mt-1 text-lg max-w-2xl text-white/95 drop-shadow-[0_2px_3px_rgba(0,0,0,.55)]">
+            ¡Tu próxima aventura empieza acá! Encontrá alojamientos únicos en cada rincón del país
+            y hospedate con personas que comparten tu forma de viajar.
+          </p>
+
+          {/* Ancla para posicionar la SearchBar */}
+          <div ref={searchAnchorRef} />
+
+          <div className="mt-4">
+            <SearchBar
+              variant="floating"
+              anchorRef={searchAnchorRef}
+              navbarHeight={NAV_HEIGHT}
+              onSearch={handleSearch}
+            />
+          </div>
         </div>
-
       </section>
 
-      <div className="rounded-t-[28px]" style={{ backgroundColor: "#FFF6DB" }}>
+      <div className="rounded-t-[28px]">
         <DestinationsGrid />
       </div>
 
