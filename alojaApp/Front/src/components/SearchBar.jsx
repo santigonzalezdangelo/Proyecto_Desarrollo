@@ -1,10 +1,15 @@
-import React, { useMemo, useState, useEffect, useLayoutEffect } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import SearchButton from "./SearchButton";
 
 const TEXT_MUTED = "#334155";
 const NAV_HEIGHT = 72;
-const STICK_OFFSET = 5; // píxeles extra cuando queda pegada arriba
-
+const STICK_OFFSET = 6; // píxeles extra cuando queda pegada arriba
 
 // Alturas unificadas para TODOS los campos/botón
 const FIELD_H = 56;          // normal
@@ -99,10 +104,14 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Modo flotante (scroll)
+  // --- Modo flotante (scroll) ---
   const [anchorTop, setAnchorTop] = useState(NAV_HEIGHT + 130);
   const [progress, setProgress] = useState(variant === "floating" ? 0 : 1);
   const compact = progress > 0.5 || variant === "embedded";
+
+  // medir altura real de la barra para el espaciador en mobile
+  const barRef = useRef(null);
+  const [barH, setBarH] = useState(0);
 
   useLayoutEffect(() => {
     if (variant !== "floating") return;
@@ -136,7 +145,35 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, [anchorTop, variant]);
 
-  // Validaciones
+  // medir altura para espaciador (mobile)
+  useEffect(() => {
+    if (!barRef.current) return;
+
+    const update = () => setBarH(barRef.current?.offsetHeight || 0);
+    update();
+
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(update)
+        : null;
+    if (ro) ro.observe(barRef.current);
+
+    window.addEventListener("resize", update);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // flags de mobile / barra flotando
+  const isMobile =
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false;
+  const isFloating =
+    variant === "floating" && typeof window !== "undefined"
+      ? anchorTop - window.scrollY <= 0
+      : false;
+
+  // --- Validaciones ---
   const disabled = useMemo(() => {
     const hasLocation = Boolean(idLocalidad || (locationText && locationText.trim()));
     if (!hasLocation || !checkIn || !checkOut) return true;
@@ -149,7 +186,7 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
     if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) setCheckOut(checkIn);
   }, [checkIn, checkOut]);
 
-  // Autocomplete (mock/api)
+  // --- Autocomplete (mock/api) ---
   const fetchSugs = useMemo(
     () =>
       debounce(async (q) => {
@@ -201,7 +238,7 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
     }
   }
 
-  // Estilos contenedores
+  // --- Estilos contenedores ---
   const containerStyle =
     variant === "floating"
       ? {
@@ -209,13 +246,12 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
           left: 0,
           right: 0,
           top: `${Math.max(anchorTop - window.scrollY, 0) + STICK_OFFSET}px`,
-          zIndex: 1100,
+          zIndex: 4000, // sobre el navbar, pero debajo del botón/menú
           background: "transparent",
-          transition: "top 240ms cubic-bezier(0.22,0.61,0.36,1)",
           display: "flex",
           justifyContent: "center",
-          alignItems: "center",
           paddingInline: 12,
+          transition: "top 220ms cubic-bezier(0.22,0.61,0.36,1)",
         }
       : {
           position: "relative",
@@ -236,7 +272,16 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
 
   return (
     <>
-      <div role="search" aria-label="Buscador de alojamientos" className="w-full" style={containerStyle}>
+      {/* Espaciador: SOLO en mobile y cuando la barra está fija, para no tapar el contenido */}
+      {isMobile && isFloating ? <div aria-hidden style={{ height: barH }} /> : null}
+
+      <div
+        ref={barRef}
+        role="search"
+        aria-label="Buscador de alojamientos"
+        className="w-full"
+        style={containerStyle}
+      >
         <div className="mx-auto" style={frameStyle}>
           <div
             className="border"
@@ -244,7 +289,7 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
               backgroundColor: "#fff",
               borderColor: "rgba(0,0,0,0.06)",
               borderRadius: 12,
-              padding: "8px 0",   // sin padding lateral para simetría exacta
+              padding: "8px 0", // sin padding lateral para simetría exacta
               boxShadow: "0 6px 18px rgba(0,0,0,0.10)",
               overflow: "hidden",
             }}
@@ -287,7 +332,9 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
                           key={s.id_localidad}
                           role="option"
                           aria-selected={activeIdx === idx}
-                          className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
+                          className={`px-3 py-2 cursor-pointer ${
+                            activeIdx === idx ? "bg-slate-100" : ""
+                          }`}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             selectSuggestion(s);
@@ -341,7 +388,9 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
                       type="number"
                       min={1}
                       value={guests}
-                      onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))}
+                      onChange={(e) =>
+                        setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))
+                      }
                       className="w-full bg-transparent outline-none"
                     />
                   </Field>
@@ -366,12 +415,16 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
                 <div className="col-span-1 sm:col-span-2 lg:col-span-1 flex items-stretch">
                   <div
                     className="rounded-xl border border-transparent box-border w-full"
-                    style={{ height: compact ? FIELD_H_COMPACT : FIELD_H, background: "transparent" }}
+                    style={{
+                      height: compact ? FIELD_H_COMPACT : FIELD_H,
+                      background: "transparent",
+                    }}
                   >
                     <SearchButton
                       onClick={() => {
                         if (disabled) return;
-                        const location = idLocalidad || (locationText ? locationText.trim() : "");
+                        const location =
+                          idLocalidad || (locationText ? locationText.trim() : "");
                         onSearch?.({ location, checkIn, checkOut, guests, maxPrice });
                       }}
                       disabled={disabled}
@@ -386,8 +439,9 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
           </div>
         </div>
       </div>
-
-      {variant === "floating" && <div style={{ height: `${NAV_HEIGHT}px` }} />}
     </>
   );
 }
+
+// Export default por si lo importás como default en algún archivo
+export default SearchBar;
