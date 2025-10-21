@@ -1,8 +1,11 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../../middlewares/auth.js";
+import userController from "../../controllers/user.controller.js";
+import { requireAuth } from "../../middlewares/auth.js";
 
 const router = Router();
 
-// Ejemplo: solo 'anfitrion' puede cambiar roles (ajustalo si querés)
+router.get("/me", requireAuth, userController.getProfile);
+router.put("/me", requireAuth, userController.updateProfile); // ✅ nuevo
+router.get("/:id", userController.findById);
 
 export default router;
