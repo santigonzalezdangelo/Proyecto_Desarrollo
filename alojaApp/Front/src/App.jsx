@@ -43,6 +43,7 @@ import PropiedadesEncontradas from "./pages/propiedades-encontradas.jsx";
 import Reservas from "./pages/reservas.jsx";
 import Register from "./pages/Register.jsx";
 import Reserva from "./pages/Reserva.jsx";
+import PropiedadesFiltradas from "./pages/propiedades-filtradas.jsx";
 
 
 export default function App() {
@@ -59,6 +60,7 @@ export default function App() {
       <Route
           path="/propiedades-encontradas"
           element={<PropiedadesEncontradas />} />
+      <Route path="/propiedades-filtradas" element={<PropiedadesFiltradas />} />
 
     </Routes>
   );
