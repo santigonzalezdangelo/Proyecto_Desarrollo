@@ -1,21 +1,8 @@
-<<<<<<< HEAD
-// src/pages/propiedades-encontradas.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import PropertyCard from "../components/PropertyCard";
-
-
-// ✅ Base de la API (usa variable de entorno si existe)
-console.log("[VITE] VITE_API_BASE =", import.meta.env?.VITE_API_BASE);
-
-=======
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 // ====== CONFIGURACIÓN DE LA API (con Fetch) ======
 const API_BASE = import.meta.env?.VITE_API_BASE || 'http://localhost:4000/api'; // Usa variable de entorno o un valor por defecto
->>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 
 // ... (El resto de los componentes Navbar, AdminSubNav, AdminPropertyCard no necesitan cambios) ...
 // NOTE: Para brevedad, el código de los otros componentes se omite.
@@ -46,12 +33,6 @@ function Navbar({ active = "mis-propiedades" }) {
     );
 }
 
-<<<<<<< HEAD
-/* ===============================
-   Navbar simple (logo + hamburguesa)
-   =============================== */
-
-=======
 function AdminSubNav({ searchText, onSearchChange, status, onStatusChange, onAdd }) {
     return (
         <div className="mb-8 p-4 rounded-xl shadow-lg" style={{ backgroundColor: "#FDF6E3" }}>
@@ -83,7 +64,6 @@ function AdminSubNav({ searchText, onSearchChange, status, onStatusChange, onAdd
         </div>
     );
 }
->>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 
 function AdminPropertyCard({ propiedad, onEliminar, onCambiarEstado, onEdit }) {
     const { id_propiedad, descripcion, precio_por_noche, localidad_nombre, tipo_propiedad_nombre, url_foto_principal, estado_publicacion } = propiedad;
@@ -125,41 +105,6 @@ function AdminPropertyCard({ propiedad, onEliminar, onCambiarEstado, onEdit }) {
     );
 }
 
-<<<<<<< HEAD
-function FilterFab({ onClick }) {
-  const TEXT_DARK = "#0F172A";
-  return (
-    <button
-      type="button"
-      aria-label="Abrir filtros"
-      onClick={onClick}
-      className="fixed rounded-xl shadow-lg hover:scale-105 transition-transform"
-      style={{
-        // alineado con tu navbar sin modificarlo
-        top: 10,              // distancia desde arriba (navbar ~72px de alto → este valor se ve bien)
-        right: 24,
-           // margen derecho
-        width: 52,
-        height: 52,
-        backgroundColor: "#EABA4B",
-        color: TEXT_DARK,
-        zIndex: 9999,         // por encima del navbar
-      }}
-    >
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        {/* Ícono de filtros (3 sliders) */}
-        <line x1="4" y1="5" x2="20" y2="5" stroke={TEXT_DARK} strokeWidth="2" strokeLinecap="round" />
-        <circle cx="10" cy="5" r="2" fill={TEXT_DARK} />
-        <line x1="4" y1="12" x2="20" y2="12" stroke={TEXT_DARK} strokeWidth="2" strokeLinecap="round" />
-        <circle cx="16" cy="12" r="2" fill={TEXT_DARK} />
-        <line x1="4" y1="19" x2="20" y2="19" stroke={TEXT_DARK} strokeWidth="2" strokeLinecap="round" />
-        <circle cx="8" cy="19" r="2" fill={TEXT_DARK} />
-      </svg>
-    </button>
-  );
-}
-
-=======
 // ====== PÁGINA PRINCIPAL: ADMINISTRAR PROPIEDADES ======
 export default function AdministrarPropiedades() {
     // ... (Estados sin cambios)
@@ -170,7 +115,6 @@ export default function AdministrarPropiedades() {
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [propertyToEdit, setPropertyToEdit] = useState(null);
->>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 
     // Carga de propiedades (sin cambios)
     useEffect(() => {
@@ -298,200 +242,10 @@ export default function AdministrarPropiedades() {
                     </div>
                 )}
 
-<<<<<<< HEAD
-  (async () => {
-    try {
-      // Armamos solo con claves definidas/no vacías
-      const qs = new URLSearchParams(
-        Object.fromEntries(
-          Object.entries({
-            // básicos
-            fecha_inicio: filtros.fecha_inicio,
-            fecha_fin: filtros.fecha_fin,
-            huespedes: filtros.huespedes,
-            id_localidad: filtros.id_localidad,
-            // avanzados (solo los que hoy existen en tu UI)
-            id_tipo_propiedad: filtros.id_tipo_propiedad,
-            precio_min: filtros.precio_min,
-            precio_max: filtros.precio_max,
-            estancia_min: filtros.estancia_min,
-            rating_min: filtros.rating_min,
-            amenities: filtros.amenities, // CSV
-            order_by: filtros.order_by,
-          }).filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "")
-        )
-      );
-
-      const url = `/api/properties/available?${qs.toString()}`;
-      console.log("[FETCH] URL =>", url);
-      console.log("[FETCH] filtros =>", Object.fromEntries(qs));
-
-      const res = await fetch(url, { signal: ctrl.signal });
-      if (!res.ok) {
-        console.warn("[propiedades] Respuesta no OK:", res.status);
-        setList([]);
-        return;
-      }
-
-      const data = await res.json();
-
-      const normalizados = (Array.isArray(data) ? data : []).map((p) => ({
-        ...p,
-        imagen_url:
-          p.imagen_url ||
-          p.url_foto ||
-          p.foto?.nombre ||
-          p.fotos?.[0]?.url_foto ||
-          p.fotos?.[0]?.nombre ||
-          p.foto_url,
-      }));
-
-      setList(normalizados);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        console.error("[propiedades] Error fetch:", err);
-        setList([]);
-      }
-    }
-  })();
-
-  return () => ctrl.abort();
-}, [filtros]);
-
-
-
-  // chips de filtros (solo si existen → NO aparece “1 huéspedes” por defecto)
-  const filterChips = useMemo(() => {
-    const chips = [];
-    if (filtros.fecha_inicio && filtros.fecha_fin)
-      chips.push(`Del ${filtros.fecha_inicio} al ${filtros.fecha_fin}`);
-    if (filtros.huespedes) chips.push(`${filtros.huespedes} huésped(es)`);
-    if (filtros.id_localidad) chips.push(`Localidad #${filtros.id_localidad}`);
-    if (filtros.precio_max) chips.push(`Hasta $${filtros.precio_max}/noche`);
-    if (filtros.id_tipo_propiedad) chips.push(`Tipo #${filtros.id_tipo_propiedad}`);
-    return chips;
-  }, [filtros]);
-
-  // arriba del return, define estas constantes (para que sea fácil ajustar)
-const NAV_H = 72;         // alto del Navbar (tu Navbar.jsx usa 72)
-const NAV_PADX = 28;      // padding lateral interno del navbar
-const MENU_BTN_W = 52;    // ancho del botón hamburguesa
-const GAP = 10;           // separación entre el botón filtros y el hamburguesa
-const RIGHT_OFFSET = NAV_PADX + MENU_BTN_W + GAP; // 28 + 52 + 10 = 90
-const FILTER_BTN_SIZE = 52; // px
-const NAV_Z = 200;        // igual que el Navbar
-
-  return (
-  <div style={{ background: PRIMARY + "20", minHeight: "100vh" }}>
-    {/* Navbar fijo */}
-    <Navbar />
-
-    {/* BOTÓN DE FILTROS FIJO (a la izquierda del menú) */}
-{/* BOTÓN DE FILTROS FIJO (alineado con el menú) */}
-{/* BOTÓN DE FILTROS FIJO (alineado con el menú) */}
-<button
-  onClick={() => setOpenFilters(true)}
-  className="flex items-center justify-center rounded-xl shadow-md hover:scale-105 active:scale-95 transition-transform"
-  style={{
-    position: "fixed",
-    // centrado vertical perfecto: (alto navbar - alto botón) / 2
-    top: (NAV_H - FILTER_BTN_SIZE) / 2,      // 72 - 48 = 12
-    // a la izquierda del hamburguesa: padding der del navbar + ancho botón menú + gap
-    right: RIGHT_OFFSET,                     // 28 + 52 + 10 = 90
-    width: FILTER_BTN_SIZE,                  // 52 (o ponelo en 52 si lo querés igual al menú)
-    height: FILTER_BTN_SIZE,
-    backgroundColor: "#F8C24D",
-    color: "#0F172A",
-    zIndex: NAV_Z + 10,                      // 210 (encima del navbar)
-    boxShadow: "0 10px 24px rgba(0,0,0,.16)",
-  }}
-  aria-label="Abrir filtros"
-  title="Filtros"
->
-  {/* Ícono filtros */}
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <line x1="4" y1="8"  x2="20" y2="8"  stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="10" cy="8" r="2" fill="#0F172A" />
-    <line x1="4" y1="12" x2="20" y2="12" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="15" cy="12" r="2" fill="#0F172A" />
-    <line x1="4" y1="16" x2="20" y2="16" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="8" cy="16" r="2" fill="#0F172A" />
-  </svg>
-</button>
-
-
-
-    {/* SPACER para que el contenido no quede debajo del navbar */}
-    <div style={{ height: NAV_H }} />
-
-    {/* ...tu <main> y resto de la página */}
-    <main className="max-w-7xl mx-auto px-4 py-6">
-  {list.length === 0 ? (
-    <p className="text-center text-slate-600 mt-10">
-      No se encontraron propiedades que coincidan con los filtros seleccionados.
-    </p>
-  ) : (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {list.map((p) => (
-        <PropertyCard
-          key={p.id_propiedad}
-          image={
-            p.imagen_url ||
-            "https://via.placeholder.com/400x250?text=AlojaApp"
-          }
-          title={`${p.descripcion?.slice(0, 60) ?? "Propiedad"} – ${p.localidad ?? ""}`}
-          subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`}
-          rating={Number(p.rating ?? 0)}
-          price={p.precio_por_noche}
-          guests={p.cantidad_huespedes}
-        />
-      ))}
-    </div>
-  )}
-</main>
-
-
-    {/* Tu modal de filtros usa setOpenFilters(true/false) como ya tenías */}
-    <FiltersModal
-      open={openFilters}
-      initial={filtros}
-      onClose={() => setOpenFilters(false)}
-onApply={(f) => {
-  setOpenFilters(false);
-
-  // Logueamos lo que viene del modal
-  console.log("[FiltersModal] onApply ->", f);
-
-  // Actualizamos el estado de filtros que usa el fetch
-  setFiltros((prev) => ({
-        // básicos (los preservo)
-        fecha_inicio: prev.fecha_inicio,
-        fecha_fin: prev.fecha_fin,
-        id_localidad: prev.id_localidad,
-        huespedes: prev.huespedes,
-
-        // avanzados (vienen del modal)
-        id_tipo_propiedad: f.tipo || undefined,
-        precio_min: f.precio_min || undefined,
-        precio_max: f.precio_max || undefined,
-        estancia_min: f.estancia_min || undefined,
-        rating_min: f.rating_min || undefined,
-        amenities:
-          Array.isArray(f.amenities) && f.amenities.length
-            ? f.amenities.join(",")
-            : (typeof f.amenities === "string" ? f.amenities : undefined),
-        order_by: f.order_by || undefined,
-      }));
-    }}
-    />
-  </div>
-);
-
-=======
                 {!loading && !error && filteredPropiedades.length > 0 && (
                     <div className="space-y-8">
                         {filteredPropiedades.map(prop => (
-                            <AdminPropertyCard 
+                            <AdminPropertyCard
                                 key={prop.id_propiedad}
                                 propiedad={prop}
                                 onEliminar={handleEliminar}
@@ -679,5 +433,4 @@ function PropertyEditModal({ isOpen, onClose, onSave, property }) {
 
 function PlusIcon() {
     return (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>);
->>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 }
