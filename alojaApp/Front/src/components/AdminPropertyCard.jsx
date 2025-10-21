@@ -49,7 +49,7 @@ const AdminPropertyCard = ({ propiedad, onEliminar, onCambiarEstado }) => {
                     📝 Editar
                 </Link>
                 
-                {/* --- LÓGICA DE BOTÓN CORREGIDA Y DEFINITIVA --- */}
+                {/* --- LÓGICA DE BOTÓN --- */}
                 <button
                     onClick={() => onCambiarEstado(id_propiedad, estado_publicacion === 'PUBLICADO' ? 'BORRADOR' : 'PUBLICADO')}
                     className={`text-center font-semibold text-sm py-2 px-3 rounded-lg text-white transition-colors ${

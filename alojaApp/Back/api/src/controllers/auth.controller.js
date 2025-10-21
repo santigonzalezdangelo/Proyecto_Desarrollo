@@ -86,36 +86,41 @@ class AuthController {
       return res.status(401).json({ error: "Credenciales inválidas" });
     }
 
-    // nombre de campo real en el modelo
+    // según tu modelo puede ser 'contrasena' o 'password'
     const hashGuardado = user.contrasena ?? user.password;
-    const ok = await isValidHash(String(password), String(hashGuardado));
+    if (!hashGuardado) {
+      // evita crashear si el campo no existe
+      return res.status(500).json({ error: "Usuario sin contraseña definida" });
+    }
+
+    const ok = await isValidHash(password, hashGuardado);
     if (!ok) {
       return res.status(401).json({ error: "Credenciales inválidas" });
     }
 
-    // === NUEVO: firmar JWT y setear cookie HttpOnly ===
-    const payload = { id: user.id ?? user.id_usuario, id_rol: user.id_rol };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    const userId = user.id_usuario ?? user.id;
+    const token = jwt.sign({ id: userId, id_rol: user.id_rol }, JWT_SECRET, { expiresIn: "7d" });
 
     res.cookie("aloja_jwt", token, {
       httpOnly: true,
-      secure: isProd,               // en prod (HTTPS) debe ser true
+      secure: isProd,
       sameSite: isProd ? "none" : "lax",
       path: "/",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 días
+      maxAge: 1000 * 60 * 60 * 24 * 7,
     });
 
-    // respuesta
     return res.status(200).json({
-      id: payload.id,
+      id: userId,
       correo: user.correo,
       id_rol: user.id_rol,
+      // opcional: role: user.Role?.nombre_rol,
     });
   } catch (error) {
-    console.error("Error in login:", error);
+    console.error("Error in login:", error); // mirá acá el mensaje exacto
     return res.status(500).json({ error: "Internal Server Error" });
   }
-  };
+};
+
 
 
     /**

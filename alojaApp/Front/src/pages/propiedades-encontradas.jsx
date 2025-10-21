@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // src/pages/propiedades-encontradas.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -8,249 +9,123 @@ import PropertyCard from "../components/PropertyCard";
 // ✅ Base de la API (usa variable de entorno si existe)
 console.log("[VITE] VITE_API_BASE =", import.meta.env?.VITE_API_BASE);
 
+=======
+import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
+// ====== CONFIGURACIÓN DE LA API (con Fetch) ======
+const API_BASE = import.meta.env?.VITE_API_BASE || 'http://localhost:4000/api'; // Usa variable de entorno o un valor por defecto
+>>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 
-/* ===============================
-   Colores de tu app
-   =============================== */
-const PRIMARY = "#F8C24D";
-const TEXT_DARK = "#0F172A";
-const CARD = "#FFFFFF";
+// ... (El resto de los componentes Navbar, AdminSubNav, AdminPropertyCard no necesitan cambios) ...
+// NOTE: Para brevedad, el código de los otros componentes se omite.
+// El código completo está en el historial si lo necesitas.
 
+function Navbar({ active = "mis-propiedades" }) {
+    const items = [
+        { key: "inicio", label: "Inicio", href: "/" },
+        { key: "mis-propiedades", label: "Mis Propiedades", href: "/administrarPropiedades" },
+        { key: "perfil", label: "Perfil", href: "/perfil" },
+        { key: "logout", label: "Cerrar Sesión", href: "/logout" },
+    ];
+    return (
+        <header className="sticky top-0 z-50 w-full shadow-md" style={{ backgroundColor: "#F8C24D" }}>
+            <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
+                <Link to="/" aria-label="Ir al inicio"><img src="/images/logo.png" alt="AlojaApp" className="object-contain" style={{ maxHeight: "70px" }} /></Link>
+                <nav className="flex items-center gap-6">
+                    {items.map((it) => (
+                        <Link key={it.key} to={it.href}
+                            className={`text-base font-semibold transition-all duration-200 ${active === it.key ? 'pb-1 border-b-2' : 'opacity-80 hover:opacity-100'}`}
+                            style={{ color: "#1e293b", borderColor: "#1e293b" }}>
+                            {it.label}
+                        </Link>
+                    ))}
+                </nav>
+            </div>
+        </header>
+    );
+}
+
+<<<<<<< HEAD
 /* ===============================
    Navbar simple (logo + hamburguesa)
    =============================== */
 
-
-/* ===============================
-   Modal de filtros (UI sola)
-   =============================== */
-// Opciones mock (hasta que tengas endpoints meta)
-const TIPOS_MOCK = [
-  { id: 1, nombre: "Departamento" },
-  { id: 2, nombre: "Casa" },
-  { id: 3, nombre: "Cabaña" },
-  { id: 4, nombre: "Loft" },
-];
-
-const AMENITIES_MOCK = [
-  { id: 1, nombre: "WiFi" },
-  { id: 2, nombre: "Piscina" },
-  { id: 3, nombre: "Estacionamiento" },
-  { id: 4, nombre: "Aire acondicionado" },
-  { id: 5, nombre: "Calefacción" },
-];
-
-
-function FiltersModal({ open, onClose, initial, onApply }) {
-  const [local, setLocal] = useState(() => ({
-    // distintos al Home
-    tipo: initial?.tipo ?? "",                 // id tipo_propiedad
-    precio_min: initial?.precio_min ?? "",
-    precio_max: initial?.precio_max ?? "",
-    estancia_min: initial?.estancia_min ?? "",
-    rating_min: initial?.rating_min ?? "",     // si más adelante calculás rating
-    amenities: Array.isArray(initial?.amenities) 
-      ? initial.amenities 
-      : (typeof initial?.amenities === "string" ? initial.amenities.split(",").map(Number) : []),
-    solo_con_fotos: !!initial?.solo_con_fotos, // boolean
-    order_by: initial?.order_by ?? "",         // "precio_asc" | "precio_desc" | "rating_desc"
-  }));
-
-  useEffect(() => {
-    setLocal((prev) => ({
-      ...prev,
-      tipo: initial?.tipo ?? "",
-      precio_min: initial?.precio_min ?? "",
-      precio_max: initial?.precio_max ?? "",
-      estancia_min: initial?.estancia_min ?? "",
-      rating_min: initial?.rating_min ?? "",
-      amenities: Array.isArray(initial?.amenities) 
-        ? initial.amenities 
-        : (typeof initial?.amenities === "string" ? initial.amenities.split(",").map(Number) : []),
-      solo_con_fotos: !!initial?.solo_con_fotos,
-      order_by: initial?.order_by ?? "",
-    }));
-  }, [initial]);
-
-  const toggleAmenity = (id) => {
-    setLocal((prev) => {
-      const set = new Set(prev.amenities || []);
-      if (set.has(id)) set.delete(id);
-      else set.add(id);
-      return { ...prev, amenities: Array.from(set) };
-    });
-  };
-
-  const apply = () => {
-    onApply({
-      ...local,
-      // normalizamos para la query string (vacíos -> undefined; amenities CSV)
-      tipo: local.tipo || undefined,
-      precio_min: local.precio_min || undefined,
-      precio_max: local.precio_max || undefined,
-      estancia_min: local.estancia_min || undefined,
-      rating_min: local.rating_min || undefined,
-      amenities:
-        local.amenities && local.amenities.length ? local.amenities.join(",") : undefined,
-      solo_con_fotos: local.solo_con_fotos ? "1" : undefined,
-      order_by: local.order_by || undefined,
-    });
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl p-6">
-        <h3 className="text-xl font-semibold mb-4" style={{ color: "#0F172A" }}>
-          Filtros avanzados
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Tipo */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Tipo de propiedad</span>
-            <select
-              value={local.tipo}
-              onChange={(e) => setLocal({ ...local, tipo: e.target.value })}
-              className="border rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="">Cualquiera</option>
-              {TIPOS_MOCK.map((t) => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
-              ))}
-            </select>
-          </label>
-
-          {/* Precio mín */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Precio por noche (mín)</span>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={local.precio_min}
-              onChange={(e) => setLocal({ ...local, precio_min: e.target.value })}
-              placeholder="Ej: 15000"
-              className="border rounded-lg px-3 py-2"
-            />
-          </label>
-
-          {/* Precio máx */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Precio por noche (máx)</span>
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={local.precio_max}
-              onChange={(e) => setLocal({ ...local, precio_max: e.target.value })}
-              placeholder="Ej: 50000"
-              className="border rounded-lg px-3 py-2"
-            />
-          </label>
-
-          {/* Estancia mínima */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Estancia mínima (noches)</span>
-            <input
-              type="number"
-              min="1"
-              inputMode="numeric"
-              value={local.estancia_min}
-              onChange={(e) => setLocal({ ...local, estancia_min: e.target.value })}
-              placeholder="Ej: 2"
-              className="border rounded-lg px-3 py-2"
-            />
-          </label>
-
-          {/* Rating mín (si lo usás más adelante) */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Calificación mínima</span>
-            <input
-              type="number"
-              min="1"
-              max="5"
-              inputMode="numeric"
-              value={local.rating_min}
-              onChange={(e) => setLocal({ ...local, rating_min: e.target.value })}
-              placeholder="Ej: 4"
-              className="border rounded-lg px-3 py-2"
-            />
-          </label>
-
-          {/* Solo con fotos */}
-          <label className="flex items-center gap-2 mt-7">
-            <input
-              type="checkbox"
-              checked={!!local.solo_con_fotos}
-              onChange={(e) => setLocal({ ...local, solo_con_fotos: e.target.checked })}
-            />
-            <span className="text-sm">Mostrar solo propiedades con fotos</span>
-          </label>
-
-          {/* Orden */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Ordenar por</span>
-            <select
-              value={local.order_by}
-              onChange={(e) => setLocal({ ...local, order_by: e.target.value })}
-              className="border rounded-lg px-3 py-2 bg-white"
-            >
-              <option value="">Relevancia</option>
-              <option value="precio_asc">Precio: más bajo primero</option>
-              <option value="precio_desc">Precio: más alto primero</option>
-              <option value="rating_desc">Mejor calificación</option>
-            </select>
-          </label>
+=======
+function AdminSubNav({ searchText, onSearchChange, status, onStatusChange, onAdd }) {
+    return (
+        <div className="mb-8 p-4 rounded-xl shadow-lg" style={{ backgroundColor: "#FDF6E3" }}>
+            <div className="flex flex-col md:flex-row items-center gap-4 w-full">
+                <div className="flex flex-col sm:flex-row gap-4 w-full flex-grow">
+                    <select
+                        value={status}
+                        onChange={onStatusChange}
+                        className="w-full sm:w-auto p-3 border rounded-lg font-semibold focus:outline-none focus:ring-2"
+                        style={{ borderColor: "#F8C24D", color: "#1e293b", '--tw-ring-color': "#F8C24D", backgroundColor: "#FFFFFF" }}
+                    >
+                        <option value="TODOS">Todos los estados</option>
+                        <option value="PUBLICADO">Publicado</option>
+                        <option value="BORRADOR">Borrador</option>
+                    </select>
+                    <input
+                        type="text"
+                        placeholder="Buscar por descripción o localidad..."
+                        value={searchText}
+                        onChange={onSearchChange}
+                        className="w-full flex-grow p-3 border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2"
+                        style={{ borderColor: "#F8C24D", color: "#1e293b", '--tw-ring-color': "#F8C24D", backgroundColor: "#FFFFFF" }}
+                    />
+                </div>
+                <button onClick={onAdd} className="w-full md:w-auto flex-shrink-0 flex items-center justify-center gap-2 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform hover:scale-105" style={{ backgroundColor: "#16A34A" }}>
+                    <PlusIcon /> Añadir Propiedad
+                </button>
+            </div>
         </div>
+    );
+}
+>>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 
-        {/* Amenities */}
-        <div className="mt-5">
-          <span className="block text-sm text-slate-600 mb-2">Características</span>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {AMENITIES_MOCK.map((a) => {
-              const checked = (local.amenities || []).includes(a.id);
-              return (
-                <label
-                  key={a.id}
-                  className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-black/5"
+function AdminPropertyCard({ propiedad, onEliminar, onCambiarEstado, onEdit }) {
+    const { id_propiedad, descripcion, precio_por_noche, localidad_nombre, tipo_propiedad_nombre, url_foto_principal, estado_publicacion } = propiedad;
+    const esPublicado = estado_publicacion === 'PUBLICADO';
+
+    return (
+        <div className="flex flex-col md:flex-row gap-6 p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300" style={{ backgroundColor: "#FFFFFF" }}>
+            <img src={url_foto_principal || 'https://placehold.co/208x176/FDF6E3/1e293b?text=Sin+Imagen'} alt={descripcion} className="w-full md:w-52 h-44 object-cover rounded-lg shrink-0" />
+            <div className="flex-grow flex flex-col">
+                <h3 className="text-2xl font-bold mb-1" style={{ color: "#1e293b" }}>{descripcion}</h3>
+                <p className="text-base font-medium" style={{ color: "#475569" }}>{tipo_propiedad_nombre}</p>
+                <p className="text-sm mb-3" style={{ color: "#475569" }}>{localidad_nombre}</p>
+                <div className="mt-auto">
+                    <span className="text-2xl font-bold" style={{ color: "#1e293b" }}>${precio_por_noche} <span className="text-sm font-normal text-slate-600">/noche</span></span>
+                </div>
+            </div>
+            <div className="flex flex-col justify-center gap-3 shrink-0 md:w-48">
+                 <span className={`text-center px-3 py-1 text-sm font-bold uppercase rounded-full ${esPublicado ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                    {estado_publicacion}
+                </span>
+                <button 
+                    onClick={() => onEdit(propiedad)} 
+                    className="text-center font-bold text-sm py-3 px-4 rounded-lg hover:opacity-90 transition-opacity" 
+                    style={{ backgroundColor: "#F8C24D", color: "#1e293b" }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleAmenity(a.id)}
-                  />
-                  <span className="text-sm">{a.nombre}</span>
-                </label>
-              );
-            })}
-          </div>
+                    📝 Editar Propiedad
+                </button>
+                <button
+                    onClick={() => onCambiarEstado(id_propiedad, esPublicado ? 'BORRADOR' : 'PUBLICADO')}
+                    className={`text-center font-bold text-sm py-3 px-4 rounded-lg text-white transition-colors ${esPublicado ? 'bg-slate-500 hover:bg-slate-600' : 'bg-green-600 hover:bg-green-700'}`}
+                >
+                    {esPublicado ? '⏸️ Despublicar' : '▶️ Publicar'}
+                </button>
+                <button onClick={() => onEliminar(id_propiedad)} className="text-center font-bold text-sm py-3 px-4 rounded-lg text-white transition-colors" style={{ backgroundColor: "#DC2626" }}>
+                    🗑️ Eliminar
+                </button>
+            </div>
         </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border"
-            style={{ background: "#FFFFFF", borderColor: "rgba(0,0,0,0.1)" }}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={apply}
-            className="px-4 py-2 rounded-lg text-white"
-            style={{ background: "#F8C24D" }}
-          >
-            Continuar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
 
+<<<<<<< HEAD
 function FilterFab({ onClick }) {
   const TEXT_DARK = "#0F172A";
   return (
@@ -284,81 +159,146 @@ function FilterFab({ onClick }) {
   );
 }
 
+=======
+// ====== PÁGINA PRINCIPAL: ADMINISTRAR PROPIEDADES ======
+export default function AdministrarPropiedades() {
+    // ... (Estados sin cambios)
+    const [propiedades, setPropiedades] = useState([]);
+    const [searchText, setSearchText] = useState("");
+    const [filterStatus, setFilterStatus] = useState("TODOS");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [propertyToEdit, setPropertyToEdit] = useState(null);
+>>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 
-/* ===============================
-   Página
-   =============================== */
-export default function PropiedadesEncontradas() {
-  const [params] = useSearchParams();
-  const [filtros, setFiltros] = useState({
-    // se rellenan desde la URL si existen
-    fecha_inicio: params.get("fecha_inicio") || undefined,
-    fecha_fin: params.get("fecha_fin") || undefined,
-    id_localidad: params.get("id_localidad") || undefined,
-    precio_max: params.get("precio_max") || undefined,
-    huespedes: params.get("huespedes")
-      ? Number(params.get("huespedes"))
-      : undefined,
-  });
-  const [list, setList] = useState([]);
-  const [openFilters, setOpenFilters] = useState(false);
-
-  // ===== Chatbox siempre visible + estilos + rebote doble
-// ==== Chat Dialogflow: montar + animación abrir/cerrar (slide up/down) ====
-useEffect(() => {
-  if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
-    const script = document.createElement("script");
-    script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
-    script.async = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      const messenger = document.createElement("df-messenger");
-      messenger.setAttribute("intent", "WELCOME");
-      messenger.setAttribute("chat-title", "Aloja");
-      messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0");
-      messenger.setAttribute("language-code", "es");
-
-      // 🎨 Colores personalizados (tema amarillo Aloja)
-      messenger.setAttribute("chat-icon", "/images/logo.png"); // opcional
-      messenger.setAttribute("chat-width", "360");
-      messenger.setAttribute("chat-height", "500");
-      messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6"); // burbujas del bot
-      messenger.style.setProperty("--df-messenger-user-message", "#F8C24D"); // burbujas del usuario
-      messenger.style.setProperty("--df-messenger-font-color", "#0F172A"); // texto
-      messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
-      messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D"); // barra superior
-
-      document.body.appendChild(messenger);
+    // Carga de propiedades (sin cambios)
+    useEffect(() => {
+        const fetchPropiedades = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await fetch(`${API_BASE}/properties/my-properties`, { credentials: 'include' });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Error ${response.status}`);
+                }
+                const data = await response.json();
+                const mappedData = data.map(p => ({
+                    ...p,
+                    localidad_nombre: p.localidad?.nombre || 'N/A',
+                    tipo_propiedad_nombre: p.tipoPropiedad?.nombre || 'N/A',
+                    url_foto_principal: p.fotos?.[0]?.url,
+                    estado_publicacion: 'PUBLICADO'
+                }));
+                setPropiedades(mappedData);
+            } catch (err) {
+                console.error("Error al obtener propiedades:", err);
+                setError(err.message || "Ocurrió un error inesperado.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPropiedades();
+    }, []);
+    
+    // ... (El resto de la lógica de la página principal no necesita cambios) ...
+    const filteredPropiedades = useMemo(() => {
+        return propiedades.filter(p => {
+            const matchesSearch = (p.descripcion || '').toLowerCase().includes(searchText.toLowerCase()) || (p.localidad_nombre || '').toLowerCase().includes(searchText.toLowerCase());
+            const matchesStatus = filterStatus === 'TODOS' || p.estado_publicacion === filterStatus;
+            return matchesSearch && matchesStatus;
+        });
+    }, [propiedades, searchText, filterStatus]);
+    
+    const handleOpenCreateModal = () => { setPropertyToEdit(null); setIsModalOpen(true); };
+    const handleCloseModal = () => { setIsModalOpen(false); setPropertyToEdit(null); };
+    const handleOpenEditModal = (propiedad) => {
+        setPropertyToEdit(propiedad);
+        setIsModalOpen(true);
     };
-  } else {
-    const messenger = document.querySelector("df-messenger");
-    if (messenger) messenger.style.display = "block";
-  }
+    
+    const handleSaveProperty = async (savedPropertyData) => {
+        const isEditing = !!propertyToEdit;
+        const url = isEditing ? `${API_BASE}/properties/${propertyToEdit.id_propiedad}` : `${API_BASE}/properties`;
+        const method = isEditing ? 'PUT' : 'POST';
 
-  return () => {
-    const messenger = document.querySelector("df-messenger");
-    if (messenger) messenger.style.display = "none";
-  };
-}, []);
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(savedPropertyData),
+                credentials: 'include',
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Error ${response.status}`);
+            }
+            const savedData = await response.json();
+            const formattedData = {
+                ...savedData,
+                localidad_nombre: savedData.localidad?.nombre || 'N/A',
+                tipo_propiedad_nombre: savedData.tipoPropiedad?.nombre || 'N/A',
+                url_foto_principal: savedData.fotos?.[0]?.url,
+                estado_publicacion: 'PUBLICADO'
+            };
 
+            if (isEditing) {
+                setPropiedades(prev => prev.map(p => p.id_propiedad === propertyToEdit.id_propiedad ? formattedData : p));
+            } else {
+                setPropiedades(prev => [formattedData, ...prev]);
+            }
+            handleCloseModal();
+        } catch (err) {
+            console.error("Error al guardar la propiedad:", err);
+            alert(`Error: ${err.message}`);
+        }
+    };
 
-  // función que hace rebotar el chat
-  const bounceHelp = () => {
-    const df = document.querySelector("df-messenger");
-    if (!df) return;
-    df.classList.remove("aloja-bounce");
-    // reflow para reiniciar animación
-    // eslint-disable-next-line no-unused-expressions
-    df.offsetWidth;
-    df.classList.add("aloja-bounce");
-  };
+    const handleEliminar = async (id) => {
+        if (window.confirm(`¿Estás seguro de que quieres eliminar esta propiedad?`)) {
+            try {
+                const response = await fetch(`${API_BASE}/properties/${id}`, { method: 'DELETE', credentials: 'include' });
+                if (!response.ok) {
+                     const errorData = await response.json().catch(() => ({}));
+                     throw new Error(errorData.message || `Error ${response.status}`);
+                }
+                setPropiedades(prev => prev.filter(p => p.id_propiedad !== id));
+            } catch (err) {
+                console.error("Error al eliminar la propiedad:", err);
+                alert(`Error: ${err.message}`);
+            }
+        }
+    };
+    
+    const handleCambiarEstado = (id, nuevoEstado) => { setPropiedades(prev => prev.map(p => p.id_propiedad === id ? { ...p, estado_publicacion: nuevoEstado } : p)); };
 
-  // cargar lista (mock por ahora)
-// cargar lista desde el backend (con fallback al MOCK si falla)
-useEffect(() => {
-  const ctrl = new AbortController();
+    return (
+        <div style={{ backgroundColor: "#FDF6E3", minHeight: "100vh" }}>
+            <Navbar active="mis-propiedades" />
+            <main className="mx-auto max-w-7xl px-4 py-10">
+                <h1 className="text-5xl font-extrabold mb-8" style={{ color: "#1e293b" }}>
+                    Panel de Propiedades
+                </h1>
+                
+                <AdminSubNav 
+                    searchText={searchText}
+                    onSearchChange={(e) => setSearchText(e.target.value)}
+                    status={filterStatus}
+                    onStatusChange={(e) => setFilterStatus(e.target.value)}
+                    onAdd={handleOpenCreateModal}
+                />
+                
+                {loading && <p className="text-center text-lg py-10" style={{color: "#475569"}}>Cargando tus propiedades...</p>}
+                {error && <p className="text-center text-lg font-bold py-10" style={{color: "#DC2626"}}>{error}</p>}
+                {!loading && !error && filteredPropiedades.length === 0 && (
+                    <div className="text-center py-12">
+                         <p className="text-xl" style={{color: "#475569"}}>No tienes propiedades registradas.</p>
+                         <p className="mt-2" style={{color: "#475569"}}>Haz clic en "Añadir Propiedad" para empezar.</p>
+                    </div>
+                )}
 
+<<<<<<< HEAD
   (async () => {
     try {
       // Armamos solo con claves definidas/no vacías
@@ -547,4 +487,197 @@ onApply={(f) => {
   </div>
 );
 
+=======
+                {!loading && !error && filteredPropiedades.length > 0 && (
+                    <div className="space-y-8">
+                        {filteredPropiedades.map(prop => (
+                            <AdminPropertyCard 
+                                key={prop.id_propiedad}
+                                propiedad={prop}
+                                onEliminar={handleEliminar}
+                                onCambiarEstado={handleCambiarEstado}
+                                onEdit={handleOpenEditModal}
+                            />
+                        ))}
+                    </div>
+                )}
+            </main>
+
+            <PropertyEditModal
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                onSave={handleSaveProperty}
+                property={propertyToEdit}
+            />
+        </div>
+    );
+}
+
+// ====== MODAL PARA CREAR Y EDITAR PROPIEDADES (CORREGIDO) ======
+function PropertyEditModal({ isOpen, onClose, onSave, property }) {
+    const [formData, setFormData] = useState({});
+    const [tipos, setTipos] = useState([]);
+    const [localidades, setLocalidades] = useState([]);
+
+    // --- Cargar Tipos y Localidades para los Selects ---
+    useEffect(() => {
+        const fetchDropdownData = async () => {
+            if (!isOpen) return;
+            try {
+                // --- ¡AQUÍ ESTÁN LAS CORRECCIONES! ---
+                // Juntamos el prefijo del 'index.routes.js' con la ruta del router específico
+                const [tiposRes, localidadesRes] = await Promise.all([
+                    fetch(`${API_BASE}/tipos-propiedad/getAllTiposPropiedad`), 
+                    fetch(`${API_BASE}/localidades/getAllLocalidades`)      
+                ]);
+
+                if (!tiposRes.ok || !localidadesRes.ok) {
+                    let errorMsg = 'No se pudieron cargar los datos para el formulario.';
+                    if (!tiposRes.ok) console.error('Error en fetch /tipos-propiedad:', tiposRes.status, await tiposRes.text());
+                    if (!localidadesRes.ok) console.error('Error en fetch /localidades:', localidadesRes.status, await localidadesRes.text());
+                    throw new Error(errorMsg);
+                }
+
+                const tiposData = await tiposRes.json();
+                const localidadesData = await localidadesRes.json();
+                
+                setTipos(tiposData);
+                setLocalidades(localidadesData);
+
+            } catch (error) {
+                console.error("Error cargando datos para el modal:", error);
+            }
+        };
+        fetchDropdownData();
+    }, [isOpen]);
+
+    // ... (El resto de la lógica del modal no necesita cambios) ...
+    useEffect(() => {
+        if (isOpen) {
+            if (property) {
+                setFormData({
+                    descripcion: property.descripcion || '',
+                    precio_por_noche: property.precio_por_noche || '',
+                    cantidad_huespedes: property.cantidad_huespedes || 1,
+                    calle: property.calle || '',
+                    numero: property.numero || '',
+                    latitud: property.latitud || '',
+                    longitud: property.longitud || '',
+                    id_tipo_propiedad: property.id_tipo_propiedad || '',
+                    id_localidad: property.id_localidad || '',
+                    reglas_de_la_casa: property.reglas_de_la_casa || '',
+                    estancia_minima: property.estancia_minima || 1,
+                });
+            } else {
+                setFormData({
+                    descripcion: '',
+                    precio_por_noche: '',
+                    cantidad_huespedes: 1,
+                    calle: '',
+                    numero: '',
+                    latitud: '',
+                    longitud: '',
+                    id_tipo_propiedad: '',
+                    id_localidad: '',
+                    reglas_de_la_casa: '',
+                    estancia_minima: 1,
+                });
+            }
+        }
+    }, [property, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleChange = (e) => {
+        const { name, value, type } = e.target;
+        const val = type === 'number' ? (value === '' ? '' : Number(value)) : value;
+        setFormData(prev => ({ ...prev, [name]: val }));
+    };
+
+    const handleSave = () => {
+        if (!formData.descripcion || !formData.precio_por_noche || !formData.calle || !formData.numero || !formData.id_localidad || !formData.id_tipo_propiedad || !formData.cantidad_huespedes) {
+            alert("Por favor, completa los campos obligatorios (*).");
+            return;
+        }
+        onSave(formData);
+    };
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60 overflow-y-auto p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 md:p-8 my-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-6 text-center" style={{ color: "#1e293b" }}>
+                    {property ? 'Editar Propiedad' : 'Añadir Nueva Propiedad'}
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="sm:col-span-2">
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Descripción *</label>
+                        <input name="descripcion" value={formData.descripcion || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Precio por Noche *</label>
+                        <input type="number" step="0.01" name="precio_por_noche" value={formData.precio_por_noche || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Huéspedes Máximos *</label>
+                        <input type="number" min="1" name="cantidad_huespedes" value={formData.cantidad_huespedes || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Calle *</label>
+                        <input name="calle" value={formData.calle || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Número *</label>
+                        <input name="numero" value={formData.numero || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Tipo de Propiedad *</label>
+                        <select name="id_tipo_propiedad" value={formData.id_tipo_propiedad || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 bg-white" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }}>
+                            <option value="" disabled>Selecciona un tipo</option>
+                            {tipos.map(tipo => (
+                                <option key={tipo.id_tipo_propiedad} value={tipo.id_tipo_propiedad}>{tipo.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Localidad *</label>
+                         <select name="id_localidad" value={formData.id_localidad || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 bg-white" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }}>
+                            <option value="" disabled>Selecciona una localidad</option>
+                            {localidades.map(loc => (
+                                <option key={loc.id_localidad} value={loc.id_localidad}>{loc.nombre}</option>
+                            ))}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Estancia Mínima (noches)</label>
+                        <input type="number" min="1" name="estancia_minima" value={formData.estancia_minima || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                     <div className="sm:col-span-2">
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Reglas de la Casa</label>
+                        <textarea name="reglas_de_la_casa" value={formData.reglas_de_la_casa || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }}></textarea>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Latitud</label>
+                        <input type="number" step="any" name="latitud" value={formData.latitud || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#475569" }}>Longitud</label>
+                        <input type="number" step="any" name="longitud" value={formData.longitud || ''} onChange={handleChange} className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2" style={{ borderColor: "#F8C24D", '--tw-ring-color': "#F8C24D" }} />
+                    </div>
+                </div>
+                <div className="mt-8 flex flex-col sm:flex-row justify-end gap-4">
+                    <button onClick={onClose} className="px-6 py-2 rounded-lg font-semibold border order-2 sm:order-1" style={{ color: "#1e293b", borderColor: "#1e293b" }}>
+                        Cancelar
+                    </button>
+                    <button onClick={handleSave} className="px-6 py-2 rounded-lg font-semibold text-white order-1 sm:order-2" style={{ backgroundColor: "#16A34A" }}>
+                        {property ? 'Guardar Cambios' : 'Crear Propiedad'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PlusIcon() {
+    return (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14m-7-7h14" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>);
+>>>>>>> e85436122940efa5c43b059457ed867ed7f0cfef
 }

@@ -1,26 +1,27 @@
-
-import { Router } from 'express';
-import PropertyController from '../../controllers/property.controller.js'; 
-import { getFeaturedProperties, getAvailableProperties } from "../../controllers/properties.controller.js";
-
+import { Router } from "express";
+import PropertiesController from "../../controllers/properties.controller.js"; // ✅ sin llaves
+import PropertyController from "../../controllers/property.controller.js";
+import { requireAuth } from "../../middlewares/auth.js";
 
 const router = Router();
 
 // --- RUTAS PÚBLICAS ---
-// (Ahora llamamos a los métodos del controlador)
-router.get('/getAllProperties', PropertyController.getAllProperties);
-router.get('/getPropertiesById/:id', PropertyController.getPropertyById);
+router.get("/getAllProperties", PropertyController.getAllProperties);
+router.get("/getPropertiesById/:id", PropertyController.getPropertyById);
 
-// (También llamamos a los métodos del controlador)
-router.get('/my-properties', PropertyController.getMyProperties);
-router.post('/createProperty', PropertyController.createProperty);
-router.put('/updatePropertyById/:id', PropertyController.updateProperty);
-router.delete('/deletePropertyById/:id', PropertyController.deleteProperty);
-// GET /api/properties/featured
-router.get("/featured", getFeaturedProperties);
+// --- PANEL DE ANFITRIÓN (Privadas) ---
+router.get("/my-properties", requireAuth, PropertyController.getMyProperties);
+router.post("/createProperty", requireAuth, PropertyController.createProperty);
+router.put("/updatePropertyById/:id", requireAuth, PropertyController.updateProperty);
+router.delete("/deletePropertyById/:id", requireAuth, PropertyController.deleteProperty);
 
-// GET /api/properties/available?fecha_inicio=YYYY-MM-DD&fecha_fin=YYYY-MM-DD&huespedes=2&id_localidad=1&precio_max=30000
-router.get("/available", getAvailableProperties);
+// --- PROPIEDADES DESTACADAS Y DISPONIBLES ---
+router.get("/featured", PropertiesController.getFeaturedProperties);
+router.get("/available", PropertiesController.getAvailableProperties);
 
+// --- ENDPOINTS DE SANTI ---
+router.get("/precio", PropertyController.getPrecio);
+router.get("/destacadas", PropertyController.getPropiedadesDestacadas);
+router.get("/:id", PropertyController.getPropiedadById);
 
 export default router;
