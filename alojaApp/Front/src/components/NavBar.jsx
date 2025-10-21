@@ -1,5 +1,5 @@
-
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const TEXT_DARK = "#0F172A";
 const API = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
@@ -12,8 +12,9 @@ export default function Navbar({
 }) {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // <- NUEVO
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const menuRef = useRef(null);
+  const buttonRef = useRef(null);
 
   // Detectar sesión
   useEffect(() => {
@@ -29,21 +30,27 @@ export default function Navbar({
     return () => { ignore = true; };
   }, []);
 
-  // cerrar al click afuera o Esc
+  // cerrar al tocar fuera del MENÚ **y** del BOTÓN, o con Esc
   useEffect(() => {
-    function onClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
-    }
-    function onKey(e) {
+    const onPointerDown = (e) => {
+      const inMenu = menuRef.current && menuRef.current.contains(e.target);
+      const inButton = buttonRef.current && buttonRef.current.contains(e.target);
+      if (!inMenu && !inButton) setOpen(false);   // fuera de ambos → cerrar
+    };
+    const onKey = (e) => {
       if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
+    };
+
+    // captura para que corra antes que otros handlers y sea consistente con Portal
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKey);
     };
   }, []);
+
+
 
   // Logout
   const handleLogout = async (e) => {
@@ -79,66 +86,117 @@ export default function Navbar({
         </a>
 
         {/* Menú */}
-        <div className="relative" ref={menuRef}>
+        {/* === Botón hamburguesa portaleado (SIEMPRE arriba del SearchBar) === */}
+        {createPortal(
           <button
+            ref={buttonRef}
             type="button"
             aria-haspopup="menu"
             aria-expanded={open}
             aria-controls="navbar-menu"
-            onClick={() => setOpen(v => !v)}
+            onClick={() => setOpen((v) => !v)}
             className="inline-flex items-center justify-center rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2"
-            style={{ height: BTN, width: BTN, backgroundColor: "#F8C24D", color: TEXT_DARK, boxShadow: "0 10px 24px rgba(0,0,0,.16)" }}
+            style={{
+              position: "fixed",
+              top: 10,                 // ajustá si tu navbar es más alto/bajo
+              right: 16,               // respeta tu padding lateral
+              height: BTN,
+              width: BTN,
+              backgroundColor: "#F8C24D",
+              color: TEXT_DARK,
+              boxShadow: "0 10px 24px rgba(0,0,0,.16)",
+              zIndex: 100000,          // por encima de TODO
+            }}
             title="Abrir menú"
           >
             <HamburgerIcon />
-          </button>
+          </button>,
+          document.body
+        )}
 
-          {open && (
+        {/* === Menú portaleado (por encima del SearchBar) === */}
+        {open &&
+          createPortal(
             <div
-              id="navbar-menu"
-              role="menu"
-              aria-label="Opciones"
-              className="absolute right-0 mt-2 w-64 rounded-2xl shadow-lg border z-[9999]"
-              style={{ background: "#FFFFFF", borderColor: "rgba(0,0,0,0.06)" }}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 99999,         // capa del menú (top absoluta)
+                pointerEvents: "none", // el overlay no bloquea el panel
+              }}
             >
-              <nav className="py-2">
-                <a role="menuitem" href="/perfil" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
-                  Perfil
-                </a>
-                <a role="menuitem" href="/administrarPropiedades" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
-                  Administrar propiedades
-                </a>
-                <a role="menuitem" href="/reservas" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
-                  Administrar reservas
-                </a>
+              {/* Backdrop clickable */}
+              <div
+                onClick={() => setOpen(false)}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.25)",
+                  pointerEvents: "auto",
+                }}
+              />
 
-                <div className="h-px my-2 bg-black/10 mx-3" />
+              {/* Panel del menú (usa el ref para no cerrarse al click interno) */}
+              <div
+                ref={menuRef}
+                id="navbar-menu"
+                role="menu"
+                aria-label="Opciones"
+                className="w-64 rounded-2xl shadow-lg border"
+                style={{
+                  position: "absolute",
+                  top: 72 + 8,          // alto del navbar (H) + margen
+                  right: 16,            // alineado con el botón
+                  background: "#FFFFFF",
+                  borderColor: "rgba(0,0,0,0.06)",
+                  pointerEvents: "auto",
+                }}
+              >
+                <nav className="py-2">
+                  <a role="menuitem" href="/" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
+                    Inicio
+                  </a>
+                  <a role="menuitem" href="/conviertete-en-anfitrion" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
+                    Conviértete en anfitrión
+                  </a>
+                  <a role="menuitem" href="/perfil" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
+                    Perfil
+                  </a>
+                  <a role="menuitem" href="/administrarPropiedades" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
+                    Administrar propiedades
+                  </a>
+                  <a role="menuitem" href="/reservas" className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1" onClick={() => setOpen(false)}>
+                    Administrar reservas
+                  </a>
 
-                {/* Auth item condicional */}
-                {isLoggedIn ? (
-                  <a
-                    role="menuitem"
-                    href="/login"
-                    className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1 text-red-600"
-                    onClick={handleLogout}
-                    aria-disabled={loggingOut}
-                  >
-                    {loggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
-                  </a>
-                ) : (
-                  <a
-                    role="menuitem"
-                    href="/login"
-                    className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1"
-                    onClick={() => setOpen(false)}
-                  >
-                    Login
-                  </a>
-                )}
-              </nav>
-            </div>
-          )}
-        </div>
+                  <div className="h-px my-2 bg-black/10 mx-3" />
+
+                  {isLoggedIn ? (
+                    <a
+                      role="menuitem"
+                      href="/login"
+                      className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1 text-red-600"
+                      onClick={handleLogout}
+                      aria-disabled={loggingOut}
+                    >
+                      {loggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
+                    </a>
+                  ) : (
+                    <a
+                      role="menuitem"
+                      href="/login"
+                      className="block px-4 py-3 hover:bg-slate-50 rounded-xl mx-1"
+                      onClick={() => setOpen(false)}
+                    >
+                      Login
+                    </a>
+                  )}
+                </nav>
+              </div>
+            </div>,
+            document.body
+          )
+        }
       </div>
     </header>
   );

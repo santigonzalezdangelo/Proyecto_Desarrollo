@@ -129,9 +129,10 @@ class PropertyDAO extends PostgresDAO {
       console.error("Error updating data:", error);
       throw new Error(error);
     }
+  };
 
     //SANTI
-    getAllWithPhotos = async () => {
+  getAllWithPhotos = async () => {
     try {
       return await this.model.findAll({
         include: [{ model: photoModel, as: "fotos" }],
@@ -280,7 +281,6 @@ class PropertyDAO extends PostgresDAO {
     }
   };
 
-  }
 }
 
 export default new PropertyDAO();

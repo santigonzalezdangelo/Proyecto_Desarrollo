@@ -1,45 +1,59 @@
-import React, { useMemo, useState, useEffect, useLayoutEffect } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import SearchButton from "./SearchButton";
 
-const TEXT_DARK = "#0F172A";
 const TEXT_MUTED = "#334155";
 const NAV_HEIGHT = 72;
+const STICK_OFFSET = 6; // píxeles extra cuando queda pegada arriba
 
-// Ajustes para el modo flotante (Home)
-const STICKY_GAP = 6;
-const HERO_EXTRA_H = 20;
-const COMPACT_HEIGHT = NAV_HEIGHT - STICKY_GAP * 2;
-const NAV_OVERLAY_OFFSET = 0;
+// Alturas unificadas para TODOS los campos/botón
+const FIELD_H = 56;          // normal
+const FIELD_H_COMPACT = 44;  // compacto (cuando se achica al scrollear)
 
 // Helpers
 function debounce(fn, wait = 300) {
   let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
 }
 
 function Field({ label, icon, children, compact = false }) {
+  const h = compact ? FIELD_H_COMPACT : FIELD_H;
   return (
     <label
-      className={
-        "flex h-full items-center gap-2 rounded-xl border border-black/5 bg-white " +
-        (compact ? "px-2.5 py-2" : "px-3 py-3")
-      }
+      className="flex items-center gap-2 rounded-xl border border-black/5 bg-white box-border px-3"
+      style={{ height: h }}
     >
-      <span className="shrink-0 opacity-70" aria-hidden>{icon}</span>
-      <div className="flex flex-col w-full">
+      <span className="shrink-0 opacity-70" aria-hidden>
+        {icon}
+      </span>
+
+      <div className="flex flex-col w-full overflow-hidden">
+        {/* No permitir salto de línea en la etiqueta */}
         <span
-          className={"uppercase tracking-wide opacity-60 " + (compact ? "text-[10px]" : "text-xs")}
-          style={{ color: TEXT_MUTED }}
+          className="uppercase tracking-wide opacity-60 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis"
+          style={{ color: TEXT_MUTED, lineHeight: 1.1 }}
+          title={label}
         >
           {label}
         </span>
-        <div className={compact ? "text-sm" : "text-base"}>{children}</div>
+
+        {/* El contenido también sin wraps para que no cambie la altura */}
+        <div className="text-[14px] whitespace-nowrap overflow-hidden text-ellipsis">
+          {children}
+        </div>
       </div>
     </label>
   );
 }
 
-// Íconos inline (solo este componente)
 function CalendarIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -69,15 +83,13 @@ function UsersIcon() {
 function PriceIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <text x="4" y="18" fontSize="16" fontWeight="bold" fill={TEXT_MUTED}>$</text>
+      <text x="4" y="18" fontSize="16" fontWeight="bold" fill={TEXT_MUTED}>
+        $
+      </text>
     </svg>
   );
 }
 
-/**
- * Componente reusable
- * - variant: "floating" (Home) | "embedded" (otras páginas)
- */
 export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
   const [locationText, setLocationText] = useState("");
   const [idLocalidad, setIdLocalidad] = useState("");
@@ -92,10 +104,14 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Posición/scroll solo en modo flotante
+  // --- Modo flotante (scroll) ---
   const [anchorTop, setAnchorTop] = useState(NAV_HEIGHT + 130);
   const [progress, setProgress] = useState(variant === "floating" ? 0 : 1);
   const compact = progress > 0.5 || variant === "embedded";
+
+  // medir altura real de la barra para el espaciador en mobile
+  const barRef = useRef(null);
+  const [barH, setBarH] = useState(0);
 
   useLayoutEffect(() => {
     if (variant !== "floating") return;
@@ -129,64 +145,113 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, [anchorTop, variant]);
 
-  // Validaciones
+  // medir altura para espaciador (mobile)
+  useEffect(() => {
+    if (!barRef.current) return;
+
+    const update = () => setBarH(barRef.current?.offsetHeight || 0);
+    update();
+
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(update)
+        : null;
+    if (ro) ro.observe(barRef.current);
+
+    window.addEventListener("resize", update);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // flags de mobile / barra flotando
+  const isMobile =
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false;
+  const isFloating =
+    variant === "floating" && typeof window !== "undefined"
+      ? anchorTop - window.scrollY <= 0
+      : false;
+
+  // --- Validaciones ---
   const disabled = useMemo(() => {
-    if (!idLocalidad || !checkIn || !checkOut) return true;
+    const hasLocation = Boolean(idLocalidad || (locationText && locationText.trim()));
+    if (!hasLocation || !checkIn || !checkOut) return true;
     if (new Date(checkOut) < new Date(checkIn)) return true;
     const g = Number(guests);
     return !(Number.isFinite(g) && g >= 1);
-  }, [idLocalidad, checkIn, checkOut, guests]);
+  }, [idLocalidad, locationText, checkIn, checkOut, guests]);
 
   useEffect(() => {
     if (checkIn && checkOut && new Date(checkOut) < new Date(checkIn)) setCheckOut(checkIn);
   }, [checkIn, checkOut]);
 
-  // Autocomplete
+  // --- Autocomplete (mock/api) ---
   const fetchSugs = useMemo(
     () =>
       debounce(async (q) => {
-        if (!q || q.trim().length < 1) { setSugs([]); setOpenSugs(false); return; }
+        if (!q || q.trim().length < 1) {
+          setSugs([]);
+          setOpenSugs(false);
+          return;
+        }
         try {
-          const res = await fetch(`http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`);
+          const res = await fetch(
+            `http://localhost:4000/localidades/search?q=${encodeURIComponent(q)}`
+          );
           if (!res.ok) throw new Error("HTTP " + res.status);
           const data = await res.json();
           setSugs(Array.isArray(data) ? data : []);
           setOpenSugs(true);
           setActiveIdx(-1);
         } catch {
-          setSugs([]); setOpenSugs(false);
+          setSugs([]);
+          setOpenSugs(false);
         }
       }, 250),
     []
   );
 
-  function handleLocationChange(e) { setLocationText(e.target.value); setIdLocalidad(""); fetchSugs(e.target.value); }
-  function selectSuggestion(s) { setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`); setIdLocalidad(String(s.id_localidad)); setOpenSugs(false); }
+  function handleLocationChange(e) {
+    setLocationText(e.target.value);
+    setIdLocalidad("");
+    fetchSugs(e.target.value);
+  }
+  function selectSuggestion(s) {
+    setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`);
+    setIdLocalidad(String(s.id_localidad));
+    setOpenSugs(false);
+  }
   function handleKeyDown(e) {
     if (!openSugs || sugs.length === 0) return;
-    if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => (i + 1) % sugs.length); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length); }
-    else if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); selectSuggestion(sugs[activeIdx]); }
-    else if (e.key === "Escape") { setOpenSugs(false); }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % sugs.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length);
+    } else if (e.key === "Enter" && activeIdx >= 0) {
+      e.preventDefault();
+      selectSuggestion(sugs[activeIdx]);
+    } else if (e.key === "Escape") {
+      setOpenSugs(false);
+    }
   }
 
-  // Estilos según variante
+  // --- Estilos contenedores ---
   const containerStyle =
     variant === "floating"
       ? {
           position: "fixed",
-          left: 0, right: 0,
-          top: `${Math.max(
-            anchorTop - window.scrollY,
-            Math.max(0, (NAV_HEIGHT - COMPACT_HEIGHT) / 2 + NAV_OVERLAY_OFFSET)
-          )}px`,
-          zIndex: 100,
+          left: 0,
+          right: 0,
+          top: `${Math.max(anchorTop - window.scrollY, 0) + STICK_OFFSET}px`,
+          zIndex: 4000, // sobre el navbar, pero debajo del botón/menú
           background: "transparent",
-          willChange: "transform, top",
-          transition: "top 240ms cubic-bezier(0.22,0.61,0.36,1)",
-          display: "flex", justifyContent: "center", alignItems: "center",
-          height: `${COMPACT_HEIGHT + (NAV_HEIGHT + HERO_EXTRA_H - COMPACT_HEIGHT) * (1 - progress)}px`,
+          display: "flex",
+          justifyContent: "center",
           paddingInline: 12,
+          transition: "top 220ms cubic-bezier(0.22,0.61,0.36,1)",
         }
       : {
           position: "relative",
@@ -198,89 +263,110 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
           marginBottom: 8,
         };
 
-  const frameStyle =
-    variant === "floating"
-      ? {
-          transform: `scale(${1 - 0.20 * progress})`,
-          transition: "transform 240ms cubic-bezier(0.22,0.61,0.36,1)",
-          transformOrigin: "center center",
-          width: "min(1160px, calc(100% - 56px))",
-        }
-      : { width: "min(1160px, calc(100% - 56px))" };
+  const frameStyle = {
+    transform: variant === "floating" ? `scale(${1 - 0.2 * progress})` : undefined,
+    transition: "transform 240ms cubic-bezier(0.22,0.61,0.36,1)",
+    transformOrigin: "center center",
+    width: "min(1160px, calc(100% - 56px))",
+  };
 
   return (
     <>
-      <div role="search" aria-label="Buscador de alojamientos" className="w-full" style={containerStyle}>
+      {/* Espaciador: SOLO en mobile y cuando la barra está fija, para no tapar el contenido */}
+      {isMobile && isFloating ? <div aria-hidden style={{ height: barH }} /> : null}
+
+      <div
+        ref={barRef}
+        role="search"
+        aria-label="Buscador de alojamientos"
+        className="w-full"
+        style={containerStyle}
+      >
         <div className="mx-auto" style={frameStyle}>
           <div
-            className="border searchbar-panel"
+            className="border"
             style={{
               backgroundColor: "#fff",
               borderColor: "rgba(0,0,0,0.06)",
-              borderRadius: `${14 - 6 * (variant === "floating" ? progress : 1)}px`,
-              padding: `${12 - 4 * (variant === "floating" ? progress : 1)}px ${14 - 4 * (variant === "floating" ? progress : 1)}px`,
-              boxShadow:
-                variant === "floating" && progress < 0.5 ? "0 6px 20px rgba(0,0,0,0.12)" : "0 3px 12px rgba(0,0,0,0.10)",
-              transition: "border-radius 240ms, padding 240ms, box-shadow 240ms cubic-bezier(0.22,0.61,0.36,1)",
+              borderRadius: 12,
+              padding: "8px 0", // sin padding lateral para simetría exacta
+              boxShadow: "0 6px 18px rgba(0,0,0,0.10)",
               overflow: "hidden",
             }}
           >
+            {/* Grilla con espaciadores laterales simétricos */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "minmax(260px, 3fr) minmax(170px, 2fr) minmax(170px, 2fr) minmax(140px, 2fr) minmax(180px, 2fr) auto",
-                columnGap: `${12 + 6 * (variant === "floating" ? (1 - progress) : 0)}px`,
+                gridTemplateColumns: "1px repeat(12, minmax(0,1fr)) 12px",
+                columnGap: 12,
+                rowGap: 8,
                 alignItems: "stretch",
-                paddingInline: "6px", // mismo borde izq/der dentro del panel
               }}
             >
-              {/* Ubicación */}
-              <div className="relative min-w-0">
-                <Field label="¿A dónde vas?" icon={<MapPinIcon />} compact={compact}>
-                  <input
-                    value={locationText}
-                    onChange={handleLocationChange}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => sugs.length && setOpenSugs(true)}
-                    placeholder="Localidad (ej.: Centro, Palermo...)"
-                    className="w-full bg-transparent outline-none"
-                    aria-label="Destino"
-                  />
-                </Field>
-                {openSugs && sugs.length > 0 && (
-                  <ul className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md" role="listbox">
-                    {sugs.map((s, idx) => (
-                      <li
-                        key={s.id_localidad}
-                        role="option"
-                        aria-selected={activeIdx === idx}
-                        className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
-                        onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                        onMouseEnter={() => setActiveIdx(idx)}
-                      >
-                        <div className="text-sm font-medium">{s.localidad}</div>
-                        <div className="text-xs text-slate-600">{s.ciudad}, {s.pais}</div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {/* Contenido en 12 columnas */}
+              <div
+                style={{ gridColumn: "2 / 14" }}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-x-3 gap-y-2 items-stretch"
+              >
+                {/* Localidad */}
+                <div className="relative min-w-0 col-span-1 sm:col-span-2 lg:col-span-3">
+                  <Field label="¿A dónde vas?" icon={<MapPinIcon />} compact={compact}>
+                    <input
+                      value={locationText}
+                      onChange={handleLocationChange}
+                      onKeyDown={handleKeyDown}
+                      onFocus={() => sugs.length && setOpenSugs(true)}
+                      placeholder="Localidad (ej.: Centro, Palermo...)"
+                      className="w-full bg-transparent outline-none"
+                      aria-label="Destino"
+                    />
+                  </Field>
+                  {openSugs && sugs.length > 0 && (
+                    <ul
+                      className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-xl border border-black/10 bg-white shadow-md"
+                      role="listbox"
+                    >
+                      {sugs.map((s, idx) => (
+                        <li
+                          key={s.id_localidad}
+                          role="option"
+                          aria-selected={activeIdx === idx}
+                          className={`px-3 py-2 cursor-pointer ${
+                            activeIdx === idx ? "bg-slate-100" : ""
+                          }`}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectSuggestion(s);
+                          }}
+                          onMouseEnter={() => setActiveIdx(idx)}
+                        >
+                          <div className="text-sm font-medium">{s.localidad}</div>
+                          <div className="text-xs text-slate-600">
+                            {s.ciudad}, {s.pais}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
 
-              {/* Llegada */}
-              <div className="min-w-0">
-                <Field label="Fecha de llegada" icon={<CalendarIcon />} compact={compact}>
-                  <div className="flex items-center gap-2">
-                    <input type="date" min={today} value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="w-full bg-transparent outline-none" />
-                    <span style={{ width: 2 }} />
-                  </div>
-                </Field>
-              </div>
+                {/* Llegada */}
+                <div className="min-w-0 col-span-1 sm:col-span-1 lg:col-span-2">
+                  <Field label="Fecha de llegada" icon={<CalendarIcon />} compact={compact}>
+                    <input
+                      type="date"
+                      min={today}
+                      value={checkIn}
+                      onChange={(e) => setCheckIn(e.target.value)}
+                      className="w-full bg-transparent outline-none"
+                    />
+                  </Field>
+                </div>
 
-              {/* Salida */}
-              <div className="min-w-0">
-                <Field label="Fecha de salida" icon={<CalendarIcon />} compact={compact}>
-                  <div className="flex items-center gap-2">
+                {/* Salida */}
+                <div className="min-w-0 col-span-1 sm:col-span-1 lg:col-span-2">
+                  <Field label="Fecha de salida" icon={<CalendarIcon />} compact={compact}>
                     <input
                       type="date"
                       min={checkIn || today}
@@ -292,68 +378,70 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
                       }}
                       className="w-full bg-transparent outline-none"
                     />
-                    <span style={{ width: 2 }} />
+                  </Field>
+                </div>
+
+                {/* Huéspedes */}
+                <div className="min-w-0 col-span-1 sm:col-span-1 lg:col-span-2" style={{ minWidth: 160 }}>
+                  <Field label="Huéspedes" icon={<UsersIcon />} compact={compact}>
+                    <input
+                      type="number"
+                      min={1}
+                      value={guests}
+                      onChange={(e) =>
+                        setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))
+                      }
+                      className="w-full bg-transparent outline-none"
+                    />
+                  </Field>
+                </div>
+
+                {/* Precio */}
+                <div className="min-w-0 col-span-1 sm:col-span-1 lg:col-span-2">
+                  <Field label="Precio por noche" icon={<PriceIcon />} compact={compact}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
+                      className="w-full bg-transparent outline-none appearance-none"
+                      placeholder="Ej: 300"
+                    />
+                  </Field>
+                </div>
+
+                {/* Botón: falso Field para misma altura */}
+                <div className="col-span-1 sm:col-span-2 lg:col-span-1 flex items-stretch">
+                  <div
+                    className="rounded-xl border border-transparent box-border w-full"
+                    style={{
+                      height: compact ? FIELD_H_COMPACT : FIELD_H,
+                      background: "transparent",
+                    }}
+                  >
+                    <SearchButton
+                      onClick={() => {
+                        if (disabled) return;
+                        const location =
+                          idLocalidad || (locationText ? locationText.trim() : "");
+                        onSearch?.({ location, checkIn, checkOut, guests, maxPrice });
+                      }}
+                      disabled={disabled}
+                      label="Buscar"
+                      className="w-full"
+                      style={{ height: "100%", width: "100%" }}
+                    />
                   </div>
-                </Field>
-              </div>
-
-              {/* Huéspedes */}
-              <div className="min-w-0">
-                <Field label="Huéspedes" icon={<UsersIcon />} compact={compact}>
-                  <input type="number" min={1} value={guests} onChange={(e) => setGuests(Math.max(1, parseInt(e.target.value || "1", 10)))} className="w-full bg-transparent outline-none" />
-                </Field>
-              </div>
-
-              {/* Precio */}
-              <div className="min-w-0">
-                <Field label="Precio por noche" icon={<PriceIcon />} compact={compact}>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
-                    className="w-full bg-transparent outline-none appearance-none"
-                    placeholder="Ej: 300"
-                  />
-                </Field>
-              </div>
-
-              {/* Botón (amarillo, sin recuadro) */}
-              <div className="flex items-stretch">
-                <SearchButton
-                  onClick={() => !disabled && onSearch?.({ location: idLocalidad, checkIn, checkOut, guests, maxPrice })}
-                  disabled={disabled}
-                  label="Buscar"
-                  className={compact ? "text-sm" : "text-base"}
-                  style={{ width: "100%", height: "100%", minHeight: compact ? "44px" : "52px" }}
-                />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Spacer solo en floating */}
-      {variant === "floating" && <div style={{ height: `${NAV_HEIGHT + (20 * (1 - progress))}px` }} />}
     </>
   );
 }
 
-//COMO USARLA EN OTRAS PAGINAS (ESTATICA)
-
-//import React, { useRef } from "react";
-//import { SearchBar } from "../components/SearchBar";
-
-//export default function Listado() {
-//  function handleSearch(params) {
-    // navegar o filtrar
-//  }
-
-//  return (
-//    <div style={{ paddingTop: "80px" }}>
-//      <SearchBar variant="embedded" onSearch={handleSearch} />
-//      {/* ...resto del contenido... */} 
-// </div>
-// );
-//} 
+// Export default por si lo importás como default en algún archivo
+export default SearchBar;
