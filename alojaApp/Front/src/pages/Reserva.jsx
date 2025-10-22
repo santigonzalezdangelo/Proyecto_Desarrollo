@@ -196,8 +196,8 @@ function getInitials(nombre, apellido) {
             </div>
 
             <h2 className="text-2xl font-bold mt-2">{propiedad.descripcion}</h2>
-            <p className="text-slate-700">
-              {propiedad.localidad}, {propiedad.ciudad}, {propiedad.pais}
+            <p>
+              {[propiedad.ciudad, propiedad.pais].filter(Boolean).join(", ")}
             </p>
             <p className="font-semibold">💰 ${propiedad.precio_por_noche} por noche</p>
 
@@ -282,22 +282,29 @@ function getInitials(nombre, apellido) {
                 </h4>
               </div>
             </div>
-            {propiedad.calificaciones?.length > 0 && (
-              <div className="border-t border-black/10 pt-4">
-                <h3 className="text-xl font-semibold mb-2">Comentarios</h3>
-                {propiedad.calificaciones.map((c) => (
-                  <div key={c.id_calificacion || Math.random()} className="flex items-start gap-3 mb-4">
-                    <div>
-                      <p className="font-semibold text-slate-800">⭐ {c.puntuacion}</p>
-                      <p className="text-slate-700 mt-1 italic">"{c.comentario}"</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {new Date(c.fecha).toLocaleDateString("es-AR")}
-                      </p>
-                    </div>
+            <div
+              className="max-h-60 overflow-y-auto pr-2 space-y-3"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "#F8C24D #FFF6DB",
+              }}
+            >
+              {propiedad.calificaciones.map((c) => (
+                <div
+                  key={c.id_calificacion || Math.random()}
+                  className="flex items-start gap-3 border-b border-slate-200 pb-2"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-800">⭐ {c.puntuacion}</p>
+                    <p className="text-slate-700 mt-1 italic">"{c.comentario}"</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {new Date(c.fecha).toLocaleDateString("es-AR")}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
+
           </div>
         </section>
 
