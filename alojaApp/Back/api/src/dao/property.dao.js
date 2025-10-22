@@ -9,7 +9,9 @@ import {
   ciudadModel,
   paisModel,
   reservationModel,
-  ratingPropertyModel
+  ratingPropertyModel,
+  caracteristicaModel,
+  caracteristicaPropiedadModel,
 } from "../models/associations.js";
 
 import { Op } from "sequelize";
@@ -98,7 +100,6 @@ class PropertyDAO extends PostgresDAO {
       
       // Volvemos a buscar la propiedad recién creada para obtener las asociaciones
       return await this.getByIdWithPhotos(newProperty.id_propiedad);
-
     } catch (error) {
       console.error('Error al crear una propiedad para un anfitrion:', error);
       throw new Error(error);
@@ -116,18 +117,21 @@ class PropertyDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
-
+  
   // Este método está bien, no necesita cambios
   updateById = async (id, data) => {
     try {
-      const [updated] = await this.model.update(data, {
+      const [rowsUpdated, updatedRows] = await this.model.update(data, {
         where: { id_propiedad: id },
+        returning: true
       });
-      if (!updated) throw new Error("Id not found");
-      return [updated]; 
+      if (rowsUpdated === 0) {
+        throw new Error("Property not found for update");
+      }
+      return updatedRows[0];
     } catch (error) {
       console.error("Error updating data:", error);
-      throw new Error(error);
+      throw new Error("Database error during update");
     }
   };
 
@@ -169,20 +173,13 @@ class PropertyDAO extends PostgresDAO {
     try {
       return await this.model.findByPk(id, {
         include: [
-          // 📸 Fotos
           { model: photoModel, as: "fotos" },
-
-          // 🏡 Tipo de propiedad
           { model: tipoPropiedadModel, as: "tipoPropiedad" },
-
-          // 👤 Anfitrión
           {
             model: userModel,
             as: "anfitrion",
             attributes: ["nombre", "apellido", "correo"],
           },
-
-          // 🌍 Localidad → Ciudad → País
           {
             model: localidadModel,
             as: "localidad",
@@ -192,8 +189,14 @@ class PropertyDAO extends PostgresDAO {
               include: { model: paisModel, as: "pais" },
             },
           },
-
-          // 📅 Reservas → Calificaciones
+          {
+            model: caracteristicaPropiedadModel,
+            as: "caracteristicas_propiedad",
+            include: {
+              model: caracteristicaModel,
+              attributes: ["nombre_caracteristica", "nombre_categoria"],
+            },
+          },
           {
             model: reservationModel,
             as: "reservas",
@@ -211,6 +214,7 @@ class PropertyDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
+
 
   // 📦 src/dao/property.dao.js
   getFeaturedProperties = async (limit = 4, excludeId = null) => {

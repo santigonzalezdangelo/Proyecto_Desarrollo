@@ -1,6 +1,7 @@
 // src/controllers/property.controller.js
 
 import PropertyDAO from '../dao/property.dao.js';
+import CaracteristicaDAO from '../dao/caracteristica.dao.js';
 
 class PropertyController {
 
@@ -68,29 +69,6 @@ class PropertyController {
     }
   };
   
-  updateProperty = async (req, res) => {
-    try {
-      const { id: propiedadId } = req.params;
-      const anfitrionId = req.user.id_usuario;
-      const dataToUpdate = req.body;
-
-      const property = await PropertyDAO.findByIdAndAnfitrion(propiedadId, anfitrionId);
-      if (!property) {
-        return res.status(404).json({ message: 'Propiedad no encontrada o no te pertenece' });
-      }
-      
-      const [updatedCount] = await PropertyDAO.updateById(propiedadId, dataToUpdate);
-      if (updatedCount === 0) {
-          return res.status(404).json({ message: 'Propiedad no encontrada' });
-      }
-
-      const updatedProperty = await PropertyDAO.getByIdWithPhotos(propiedadId);
-      res.status(200).json(updatedProperty);
-      
-    } catch (error) {
-      res.status(500).json({ message: 'Error al actualizar la propiedad', error: error.message });
-    }
-  };
 
   deleteProperty = async (req, res) => {
     try {
@@ -108,6 +86,39 @@ class PropertyController {
       res.status(500).json({ message: 'Error al eliminar la propiedad', error: error.message });
     }
   };
+
+updateProperty = async (req, res) => {
+	try {
+		const { id: propiedadId } = req.params;
+		const anfitrionId = req.user.id_usuario;
+		const { caracteristicas, ...propertyData } = req.body;
+
+		const property = await PropertyDAO.findByIdAndAnfitrion(propiedadId, anfitrionId);
+		if (!property) return res.status(403).json({ message: 'Propiedad no encontrada o no te pertenece' });
+
+		// 1️⃣ Actualizar datos de la propiedad
+		if (Object.keys(propertyData).length > 0) {
+			await PropertyDAO.updateById(propiedadId, propertyData);
+		}
+
+		// 2️⃣ Actualizar características (si vienen)
+		if (Array.isArray(caracteristicas)) {
+			await CaracteristicaDAO.setCaracteristicasForProperty(propiedadId, caracteristicas);
+		}
+
+		// 3️⃣ Traer propiedad completa actualizada
+		const updatedProperty = await PropertyDAO.getFullById(propiedadId);
+		res.status(200).json(updatedProperty);
+
+	} catch (error) {
+		console.error('Error al actualizar la propiedad:', error);
+		if (error.message === "Property not found for update") {
+			return res.status(404).json({ message: 'Propiedad no encontrada para la actualización.' });
+		}
+		res.status(500).json({ message: 'Error al actualizar la propiedad', error: error.message });
+	}
+};
+
 
 
   // --- 🟨 SANTI: Endpoints de Reserva y Propiedades destacadas ---
@@ -175,21 +186,27 @@ class PropertyController {
   getPropiedadById = async (req, res) => {
     try {
       const { id } = req.params;
-
       const propiedad = await PropertyDAO.getFullById(id);
-      if (!propiedad) {
-        return res.status(404).json({ error: "Propiedad no encontrada" });
-      }
+      if (!propiedad) return res.status(404).json({ error: "Propiedad no encontrada" });
 
       // 🧮 promedio de calificaciones
       const calificaciones = propiedad.reservas
         ?.map((r) => r.calificacion?.puntuacion)
         .filter((p) => p !== undefined && p !== null);
-
       const promedio =
         calificaciones?.length > 0
           ? (calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length).toFixed(1)
           : null;
+
+      // 🔗 características de la propiedad
+      const caracteristicas_propiedad =
+        propiedad.caracteristicas_propiedad?.map((cp) => ({
+          id_caracteristica_propiedad: cp.id_caracteristica_propiedad,
+          id_caracteristica: cp.id_caracteristica,
+          cantidad: cp.cantidad,
+          nombre_caracteristica: cp.caracteristica?.nombre_caracteristica,
+          nombre_categoria: cp.caracteristica?.nombre_categoria,
+        })) ?? [];
 
       // ✅ respuesta
       const result = {
@@ -198,16 +215,11 @@ class PropertyController {
         precio_por_noche: Number(propiedad.precio_por_noche),
         cantidad_huespedes: propiedad.cantidad_huespedes,
         estancia_minima: propiedad.estancia_minima,
-
-        // 📍 Coordenadas
         latitud: propiedad.latitud !== null ? Number(propiedad.latitud) : null,
         longitud: propiedad.longitud !== null ? Number(propiedad.longitud) : null,
-
-        // (opcional, por si querés mostrar dirección)
         calle: propiedad.calle ?? null,
         numero: propiedad.numero ?? null,
-
-        // 🔗 relaciones
+        caracteristicas_propiedad,
         tipo: propiedad.tipoPropiedad?.nombre_tipo ?? null,
         localidad: propiedad.localidad?.nombre_localidad ?? null,
         ciudad: propiedad.localidad?.ciudad?.nombre_ciudad ?? null,
@@ -237,7 +249,6 @@ class PropertyController {
     }
   };
 
-
   /**
    * GET /api/propiedades/destacadas
    * Devuelve un listado de 4 propiedades destacadas
@@ -253,6 +264,39 @@ class PropertyController {
     }
   };
 
+  // --- NUEVO MÉTODO PARA CARACTERÍSTICAS ---
+  setCaracteristicasForProperty = async (req, res) => {
+    try {
+      const { id_propiedad } = req.params;
+      const { id_usuario } = req.user; // Asumimos que requireAuth funciona
+      const { caracteristicas } = req.body; // Array de {id_caracteristica, cantidad}
+
+      // 1. Verificar si el usuario es anfitrión de la propiedad
+      const property = await PropertyDAO.findByIdAndAnfitrion(id_propiedad, id_usuario);
+      if (!property) {
+        // Esto debería ser un 403, pero si el 404 persiste, es un error de Express.
+        return res.status(403).json({ error: 'No tienes permiso para modificar esta propiedad.' });
+      }
+      if (!Array.isArray(caracteristicas)) {
+        return res.status(400).json({ error: 'El cuerpo de la solicitud debe contener el campo "caracteristicas" como un array.' });
+      }
+
+      // 2. Usar el DAO de Característica para guardar la relación N:M
+      const result = await CaracteristicaDAO.setCaracteristicasForProperty(
+        id_propiedad,
+        caracteristicas
+      );
+
+      res.status(200).json({ 
+        message: 'Características actualizadas correctamente.',
+        data: result 
+      });
+
+      } catch (error) {
+        console.error('Error al establecer características:', error);
+        res.status(500).json({ error: 'Error interno del servidor al actualizar las características.' });
+      }
+    };  
 }
 
 export default new PropertyController();

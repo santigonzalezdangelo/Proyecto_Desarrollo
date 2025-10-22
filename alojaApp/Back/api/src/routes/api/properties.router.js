@@ -13,9 +13,14 @@ const router = Router();
 // --- RUTAS PÚBLICAS ---
 router.get("/getAllProperties", PropertyController.getAllProperties);
 router.get("/getPropertiesById/:id", PropertyController.getPropertyById);
+router.get("getPropiedadById/:id", PropertyController.getPropiedadById);
+router.get("/getPropiedadById/:id", PropertyController.getPropiedadById);
 
 // --- PANEL DE ANFITRIÓN (Privadas) ---
-router.get("/my-properties", requireAuth, PropertyController.getMyProperties);
+router.get("/my-properties",
+  requireAuth,
+  PropertyController.getMyProperties
+);
 router.post(
   "/createProperty",
   requireAuth,
@@ -31,6 +36,12 @@ router.delete(
   "/deletePropertyById/:id",
   requireAuth,
   PropertyController.deleteProperty
+);
+// Permite guardar las características y sus cantidades para una propiedad respetando la Jerarquia de Recursos.
+router.put(
+  '/caracteristicas/:id_propiedad',
+  requireAuth,
+  PropertyController.setCaracteristicasForProperty // <-- Nuevo método
 );
 
 // --- PROPIEDADES DESTACADAS Y DISPONIBLES ---
