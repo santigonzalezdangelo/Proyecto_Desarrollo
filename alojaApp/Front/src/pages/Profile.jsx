@@ -205,20 +205,53 @@ export default function Profile() {
                   {title}
                 </h2>
                 <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                  Miembro desde{" "}
-                  {new Date(data?.fecha_creacion || Date.now()).toLocaleDateString()}
+                  Miembro desde
+                  {new Date(
+                    data?.fecha_creacion || Date.now()
+                  ).toLocaleDateString()}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Nombre" value={form.nombre} onChange={(v) => onChange("nombre", v)} disabled={!edit} />
-              <Field label="Apellido" value={form.apellido} onChange={(v) => onChange("apellido", v)} disabled={!edit} />
-              <Field label="DNI" value={form.dni} onChange={(v) => onChange("dni", onlyDigits(v))} disabled={!edit} />
+              <Field
+                label="Nombre"
+                value={form.nombre}
+                onChange={(v) => onChange("nombre", v)}
+                disabled={!edit}
+              />
+              <Field
+                label="Apellido"
+                value={form.apellido}
+                onChange={(v) => onChange("apellido", v)}
+                disabled={!edit}
+              />
+              <Field
+                label="DNI"
+                value={form.dni}
+                onChange={(v) => onChange("dni", onlyDigits(v))}
+                disabled={!edit}
+              />
               <Field label="Correo" value={form.correo} disabled={true} />
-              <Field label="Calle" value={form.calle || ""} onChange={(v) => onChange("calle", v)} disabled={!edit} />
-              <Field label="Número" value={form.numero || ""} onChange={(v) => onChange("numero", v)} disabled={!edit} />
-              <Field label="CBU" value={form.cbu || ""} onChange={(v) => onChange("cbu", onlyDigits(v).slice(0,22))} disabled={!edit} helper={maskCBU(form.cbu)} />
+              <Field
+                label="Calle"
+                value={form.calle || ""}
+                onChange={(v) => onChange("calle", v)}
+                disabled={!edit}
+              />
+              <Field
+                label="Número"
+                value={form.numero || ""}
+                onChange={(v) => onChange("numero", v)}
+                disabled={!edit}
+              />
+              <Field
+                label="CBU"
+                value={form.cbu || ""}
+                onChange={(v) => onChange("cbu", onlyDigits(v).slice(0, 22))}
+                disabled={!edit}
+                helper={maskCBU(form.cbu)}
+              />
             </div>
           </div>
 
@@ -226,12 +259,29 @@ export default function Profile() {
             <h3 className="text-lg font-semibold" style={{ color: TEXT_DARK }}>
               Resumen
             </h3>
-            <KeyValue label="Localidad" value={data?.localidad?.nombre || "—"} />
-            <KeyValue label="Ciudad" value={data?.localidad?.ciudad?.nombre_ciudad || "—"} />
-            <KeyValue label="País" value={data?.localidad?.ciudad?.pais?.nombre_pais || "—"} />
+            <KeyValue
+              label="Localidad"
+              value={data?.localidad?.nombre || "—"}
+            />
+            <KeyValue
+              label="Ciudad"
+              value={data?.localidad?.ciudad?.nombre_ciudad || "—"}
+            />
+            <KeyValue
+              label="País"
+              value={data?.localidad?.ciudad?.pais?.nombre_pais || "—"}
+            />
             <div className="h-px bg-black/10 my-2" />
-            <KeyValue label="Usuario #" value={String(data?.id_usuario || "—")} />
-            <KeyValue label="Miembro desde" value={new Date(data?.fecha_creacion || Date.now()).toLocaleDateString()} />
+            <KeyValue
+              label="Usuario #"
+              value={String(data?.id_usuario || "—")}
+            />
+            <KeyValue
+              label="Miembro desde"
+              value={new Date(
+                data?.fecha_creacion || Date.now()
+              ).toLocaleDateString()}
+            />
           </aside>
         </section>
       </main>
@@ -242,7 +292,10 @@ export default function Profile() {
 function Field({ label, value, onChange, disabled, helper }) {
   return (
     <label className="block text-sm">
-      <span className="uppercase tracking-wide text-[11px] opacity-70" style={{ color: TEXT_MUTED }}>
+      <span
+        className="uppercase tracking-wide text-[11px] opacity-70"
+        style={{ color: TEXT_MUTED }}
+      >
         {label}
       </span>
       <input
