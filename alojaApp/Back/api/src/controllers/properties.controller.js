@@ -1,64 +1,70 @@
 // src/controllers/properties.controller.js
-import { getFeaturedDAO, getAvailableDAO } from "../dao/properties.dao.js";
+// src/controllers/properties.controller.js
+import { 
+  getFeaturedDAO, 
+  getAvailableDAO, 
+  getFiltersDAO       // 👈 agregalo acá
+} from "../dao/properties.dao.js";
+
 
 class PropertiesController {
+  /**
+   * 🏡 GET /api/properties/featured
+   * Devuelve propiedades destacadas
+   */
   async getFeaturedProperties(req, res) {
     try {
       const rows = await getFeaturedDAO();
-      res.json(rows);
+      return res.json(rows);
     } catch (err) {
       console.error("getFeaturedProperties error:", err);
-      res.status(500).json({ error: "Error obteniendo propiedades destacadas" });
+      return res.status(500).json({ error: "Error obteniendo propiedades destacadas" });
     }
   }
 
-  // controllers/properties.controller.js
-async getAvailableProperties(req, res) {
-  try {
-    const {
-      fecha_inicio,
-      fecha_fin,
-      huespedes,
-      id_localidad,
-      precio_max,          // básico opcional
-
-      // AVANZADOS (opcionales)
-      id_tipo_propiedad,
-      precio_min,
-      rating_min,
-      amenities,           // CSV: "1,2,5"
-      order_by,            // "precio_asc" | "precio_desc" | "rating_desc"
-    } = req.query;
-
-    // misma validación mínima que hoy
-    if (!fecha_inicio || !fecha_fin || !huespedes || !id_localidad) {
-      return res.status(400).json({error: "Faltan parámetros obligatorios",
-          required: ["fecha_inicio", "fecha_fin", "huespedes", "id_localidad"],
-          received: req.query,});
+  async getFilters(req, res) {
+    try {
+      const data = await getFiltersDAO();
+      res.json(data);
+    } catch (err) {
+      console.error("getFilters error:", err);
+      res.status(500).json({ error: "Error obteniendo filtros" });
     }
-
-    const rows = await getAvailableDAO({
-      fecha_inicio,
-      fecha_fin,
-      huespedes: Number(huespedes),
-      id_localidad: Number(id_localidad),
-      precio_max: precio_max ? Number(precio_max) : undefined,
-
-      // pasar opcionales si llegan
-      id_tipo_propiedad: id_tipo_propiedad ? Number(id_tipo_propiedad) : undefined,
-      precio_min: precio_min ? Number(precio_min) : undefined,
-      rating_min: rating_min ? Number(rating_min) : undefined,
-      amenities: amenities ? amenities.split(",").map((n) => Number(n)) : undefined,
-      order_by: order_by || undefined,
-    });
-
-    res.json(rows);
-  } catch (err) {
-    console.error("getAvailableProperties error:", err);
-    res.status(500).json({ error: "Error obteniendo propiedades disponibles" });
   }
-}
 
+
+  /**
+   * 🔍 GET /api/properties/available
+   * Filtra propiedades disponibles según filtros.
+   * (por ahora, el filtro de fechas puede no excluir reservas)
+   */
+  async getAvailableProperties(req, res) {
+    try {
+      const {
+        fecha_inicio,
+        fecha_fin,
+        huespedes,
+        id_localidad
+      } = req.query;
+
+      console.log("[Controller] getAvailableProperties query:", req.query);
+
+      // Solo verificamos los mínimos necesarios
+      if (!huespedes || !id_localidad) {
+        return res.status(400).json({
+          error: "Faltan parámetros mínimos",
+          required: ["huespedes", "id_localidad"],
+          received: req.query
+        });
+      }
+
+      const data = await getAvailableDAO(req.query);
+      return res.json(data);
+    } catch (error) {
+      console.error("getAvailableProperties error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
 }
 
 export default new PropertiesController();
