@@ -8,4 +8,7 @@ const router = Router();
 router.post('/createLocalidad', LocalidadController.createLocalidad);
 router.get('/getAllLocalidades', LocalidadController.getAllLocalidades);
 
+// /api/localidades/search?q=bar
+router.get('/search', LocalidadController.searchLocalidades);
+
 export default router;

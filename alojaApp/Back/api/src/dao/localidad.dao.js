@@ -2,6 +2,7 @@
 
 import localidadModel from '../models/localidad.model.js';
 import PostgresDAO from './postgres.dao.js';
+import { Op } from 'sequelize';
 
 class LocalidadDAO extends PostgresDAO {
   constructor() {
@@ -24,6 +25,23 @@ class LocalidadDAO extends PostgresDAO {
     } catch (error) {
         console.error("Error fetching localidades:", error);
         throw new Error(error);
+    }
+  };
+
+  searchLocalidades = async (q) => {
+    try {
+      const term = String(q).trim();
+      // Para Postgres: ILIKE. Si usaras otra DB, [Op.substring] también funciona.
+      return await this.model.findAll({
+        where: {
+          nombre: { [Op.iLike]: `${term}%` }, // o `%${term}%` si querés contains
+        },
+        order: [['nombre', 'ASC']],
+        limit: 10,
+      });
+    } catch (error) {
+      console.error("Error searching localidades:", error);
+      throw new Error(error);
     }
   };
 }
