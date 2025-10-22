@@ -116,7 +116,7 @@ function AdminSubNav({
         >
           <PlusIcon /> Añadir Propiedad
         </button>
-        </div>
+      </div>
     </div>
   );
 }
@@ -162,7 +162,7 @@ function AdminPropertyCard({ propiedad, onEliminar, onCambiarEstado, onEdit }) {
             <span className="text-sm font-normal text-slate-600">/noche</span>
           </span>
         </div>
-        </div>
+      </div>
       <div className="flex flex-col justify-center gap-3 shrink-0 md:w-48">
         <span
           className={`text-center px-3 py-1 text-sm font-bold uppercase rounded-full ${
@@ -203,12 +203,12 @@ function AdminPropertyCard({ propiedad, onEliminar, onCambiarEstado, onEdit }) {
           🗑️ Eliminar
         </button>
       </div>
-      </div>
+    </div>
   );
 }
 
 // ====== PÁGINA PRINCIPAL: ADMINISTRAR PROPIEDADES ======
-export default function AdministrarPropiedades() { 
+export default function AdministrarPropiedades() {
   const [propiedades, setPropiedades] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState("TODOS");
@@ -295,10 +295,40 @@ export default function AdministrarPropiedades() {
     setIsModalOpen(false);
     setPropertyToEdit(null);
   };
+  
+  // FUNCIÓN CLAVE: Busca la propiedad completa incluyendo características antes de editar
+  const fetchPropertyDetails = async (propiedad) => {
+    try {
+      showNotification("Cargando detalles...", "info");
+      
+      // NOTA: Asume que tienes un endpoint para obtener una propiedad CON TODAS las asociaciones
+      // Por ejemplo: GET /properties/full/:id
+      const response = await fetch(`${API_BASE}/properties/getPropiedadById/${propiedad.id_propiedad}`, {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: No se pudo cargar el detalle completo.`);
+      }
+      
+      const fullProperty = await response.json();
+      
+      // Asume que la respuesta incluye: { ..., fotos: [...], caracteristicas_propiedad: [...] }
+      setPropertyToEdit(fullProperty);
+      setIsModalOpen(true);
+      showNotification("Detalles cargados.", "success");
+      
+    } catch (err) {
+      console.error("Error al cargar detalles de la propiedad:", err);
+      showNotification(`Error: ${err.message}`, "error");
+    }
+  };
+  
   const handleOpenEditModal = (propiedad) => {
-    setPropertyToEdit(propiedad);
-    setIsModalOpen(true);
+    // Corregido: Llamamos a la función de carga de detalles
+    fetchPropertyDetails(propiedad); 
   };
+  
   // Nueva función para actualizar el estado del array de fotos desde el modal
   const handleUpdatePropertyPhotos = (propertyId, newPhotosArray) => {
     setPropiedades((prev) =>
@@ -360,8 +390,8 @@ export default function AdministrarPropiedades() {
         : savedDataResponse.data;
       const propertyId = savedProperty.id_propiedad; // Subir fotos si hay
 
-      if (photoFiles.length > 0) {
-        if (photoFiles.length > 20) {
+      if (photoFiles ?? [].length > 0) {
+        if (photoFiles ?? [].length > 20) {
           showNotification("No se pueden subir más de 20 fotos.", "error");
           return;
         }
@@ -662,10 +692,11 @@ function PropertyEditModal({
         });
         
         // Inicializar características para edición (si existen)
-        // Se asume que 'property' trae un campo 'caracteristicas_propiedad'
+        // CORRECCIÓN: property ahora trae 'caracteristicas_propiedad' gracias a fetchPropertyDetails
         const initialCaracteristicas = (property.caracteristicas_propiedad || []).map(cp => ({
+            // El objeto 'cp' viene directamente de la tabla caracteristicas_propiedad
             id_caracteristica: cp.id_caracteristica,
-            cantidad: cp.cantidad || 1,
+            cantidad: cp.cantidad || 0, // Usamos 0 si es null/undefined
         }));
         setCaracteristicasData(initialCaracteristicas);
 
@@ -698,42 +729,96 @@ function PropertyEditModal({
   };
 
   // NUEVA FUNCIÓN: Manejar el guardado de características
-  const handleSaveCaracteristicas = async () => {
-    if (!property?.id_propiedad) {
-        return showNotification("Primero debes crear/guardar la propiedad antes de editar las características.", "error");
-    }
+//   const handleSaveCaracteristicas = async () => {
+//     if (!property?.id_propiedad) {
+//         return showNotification("Primero debes crear/guardar la propiedad antes de editar las características.", "error");
+//     }
 
-    const characteristicsToSave = caracteristicasData
-        .filter(c => c.cantidad > 0)
-        .map(c => ({
-            id_caracteristica: c.id_caracteristica,
-            cantidad: Number(c.cantidad)
-        }));
+//     const characteristicsToSave = caracteristicasData
+//         .filter(c => c.cantidad > 0)
+//         .map(c => ({
+//             id_caracteristica: c.id_caracteristica,
+//             cantidad: Number(c.cantidad)
+//         }));
 
-    try {
-        // Endpoint para guardar/actualizar la lista de características
-        const response = await fetch(`${API_BASE}/properties/caracteristicas/${property.id_propiedad}`, {
-            method: 'PUT', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ caracteristicas: characteristicsToSave }),
-            credentials: 'include',
-        });
+//     try {
+//         // Endpoint para guardar/actualizar la lista de características
+//         const response = await fetch(`${API_BASE}/properties/caracteristicas/${property.id_propiedad}`, {
+//             method: 'PUT', 
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ caracteristicas: characteristicsToSave }),
+//             credentials: 'include',
+//         });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Error ${response.status}: No se pudieron guardar las características.`);
-        }
+//         if (!response.ok) {
+//             const errorData = await response.json().catch(() => ({}));
+//             throw new Error(errorData.message || `Error ${response.status}: No se pudieron guardar las características.`);
+//         }
 
-        // Llamar a fetchPropiedades en el padre para actualizar la vista
-        onSave({}, [], () => {}); 
-        showNotification("Características guardadas con éxito", "success");
-        onClose(); 
-        
-    } catch (err) {
-        console.error("Error al guardar características:", err);
-        showNotification(`Error al guardar características: ${err.message}`, "error");
-    }
-  }
+//         // CORRECCIÓN CLAVE: Refrescar la lista de propiedades y los detalles del modal
+//         await onSave({}, [], () => {}); // Esto recarga la lista de propiedades principal
+//         
+//         // 1. Refrescar la propiedad que está abierta en el modal para ver los cambios
+//         await fetchPropertyDetails(property);
+        
+//         showNotification("Características guardadas con éxito", "success");
+//         onClose(); 
+//         
+//     } catch (err) {
+//         console.error("Error al guardar características:", err);
+//         showNotification(`Error al guardar características: ${err.message}`, "error");
+//     }
+//   }
+    const handleSaveCaracteristicas = async () => {
+        if (!property?.id_propiedad) {
+            return showNotification(
+                "Primero debes crear/guardar la propiedad antes de editar las características.",
+                "error"
+            );
+        }
+
+        const characteristicsToSave = caracteristicasData
+            .filter(c => c.cantidad > 0)
+            .map(c => ({
+                id_caracteristica: c.id_caracteristica,
+                cantidad: Number(c.cantidad)
+            }));
+
+        try {
+            // Endpoint para guardar/actualizar la lista de características
+            const response = await fetch(`${API_BASE}/properties/caracteristicas/${property.id_propiedad}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ caracteristicas: characteristicsToSave }),
+                credentials: 'include',
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Error ${response.status}: No se pudieron guardar las características.`);
+            }
+
+            // CORRECCIÓN CLAVE: Refrescar la lista de propiedades principal
+            await onSave({}, [], () => {});
+
+            // Obtener la propiedad actualizada desde el backend
+            const res = await fetch(`${API_BASE}/properties/getPropiedadById/${property.id_propiedad}`, {
+                credentials: 'include',
+            });
+            if (!res.ok) throw new Error('No se pudo obtener la propiedad actualizada');
+            const updatedProperty = await res.json();
+
+            // Actualizamos la propiedad usando onSave
+            onSave(updatedProperty);
+
+            showNotification("Características guardadas con éxito", "success");
+            onClose();
+
+        } catch (err) {
+            console.error("Error al guardar características:", err);
+            showNotification(`Error al guardar características: ${err.message}`, "error");
+        }
+    };
 
 
   const handleSave = () => {
@@ -754,11 +839,10 @@ function PropertyEditModal({
             );
             return;
         }
+        // Esto llama al PUT /updatePropertyById/X (y es donde está el error 500)
         onSave(formData, photoFiles, setPhotoFiles); 
-    } else {
-        // En teoría, el botón "Guardar Características" es el que se muestra en esta pestaña.
-        handleSaveCaracteristicas();
-    }
+    } 
+    // Nota: El botón de Guardar Características es ahora independiente y está en el JSX.
   };
 
   const handleSetPhotoAsPrincipal = async (photoId, propertyId) => {
@@ -1147,7 +1231,7 @@ function PropertyEditModal({
               </button>
           )}
         </div>
-      </div>
+        </div>
     </div>
   );
 }
@@ -1155,26 +1239,26 @@ function PropertyEditModal({
 // ====== COMPONENTE DE SELECCIÓN DE CARACTERÍSTICAS (NUEVO) ======
 function CaracteristicasEditor({ allCaracteristicas, caracteristicasData, setCaracteristicasData, showNotification }) {
 
-    // Función para agrupar características por categoría
-    const groupedCaracteristicas = useMemo(() => {
-        // Aseguramos que 'allCaracteristicas' sea un array antes de reducir
-        if (!Array.isArray(allCaracteristicas)) return {}; 
-        
-        return allCaracteristicas.reduce((groups, item) => {
-            // Usamos item.nombre_categoria (el campo nuevo)
-            const category = item.nombre_categoria || 'Otros';
-            if (!groups[category]) {
-                groups[category] = [];
-            }
-            groups[category].push(item);
-            return groups;
-        }, {});
-    }, [allCaracteristicas]);
+    // Función para agrupar características por categoría
+    const groupedCaracteristicas = useMemo(() => {
+        // Aseguramos que 'allCaracteristicas' sea un array antes de reducir
+        if (!Array.isArray(allCaracteristicas)) return {}; 
+        
+        return allCaracteristicas.reduce((groups, item) => {
+            // Usamos item.nombre_categoria (el campo nuevo)
+            const category = item.nombre_categoria || 'Otros';
+            if (!groups[category]) {
+                groups[category] = [];
+            }
+            groups[category].push(item);
+            return groups;
+        }, {});
+    }, [allCaracteristicas]);
 
     const handleQuantityChange = (id, newQuantity) => {
         // Limpiamos el valor de entrada a un número o 0
         const quantity = Number(newQuantity) || 0;
-        
+        
         setCaracteristicasData(prev => {
             const index = prev.findIndex(c => c.id_caracteristica === id);
             
@@ -1208,32 +1292,32 @@ function CaracteristicasEditor({ allCaracteristicas, caracteristicasData, setCar
                     Cargando características o no hay ninguna definida en el sistema.
                  </div>
             )}
-            
-            {/* Renderizado agrupado por Categoría */}
-            {Object.keys(groupedCaracteristicas).sort().map(category => (
-                <div key={category} className="space-y-3">
-                    <h3 className="text-lg font-bold pb-1" style={{ color: TEXT_DARK, borderBottom: `2px solid ${PRIMARY_COLOR}` }}>
-                        {category}
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {groupedCaracteristicas[category].map(caract => (
-                            <div key={caract.id_caracteristica} className="flex items-center justify-between p-3 rounded-lg border" style={{ borderColor: BORDER_COLOR, backgroundColor: CARD_BG }}>
-                                <span className="font-semibold text-sm" style={{ color: TEXT_DARK }}>{caract.nombre_caracteristica}</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    // Muestra la cantidad si es > 0, sino, muestra vacío para indicar deselección.
-                                    value={getQuantity(caract.id_caracteristica) || ''} 
-                                    placeholder="0"
-                                    onChange={(e) => handleQuantityChange(caract.id_caracteristica, e.target.value)}
-                                    className="w-20 p-1 border text-center rounded-lg focus:outline-none focus:ring-1"
-                                    style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
+            
+            {/* Renderizado agrupado por Categoría */}
+            {Object.keys(groupedCaracteristicas).sort().map(category => (
+                <div key={category} className="space-y-3">
+                    <h3 className="text-lg font-bold pb-1" style={{ color: TEXT_DARK, borderBottom: `2px solid ${PRIMARY_COLOR}` }}>
+                        {category}
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {groupedCaracteristicas[category].map(caract => (
+                            <div key={caract.id_caracteristica} className="flex items-center justify-between p-3 rounded-lg border" style={{ borderColor: BORDER_COLOR, backgroundColor: CARD_BG }}>
+                                <span className="font-semibold text-sm" style={{ color: TEXT_DARK }}>{caract.nombre_caracteristica}</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    // Muestra la cantidad si es > 0, sino, muestra vacío para indicar deselección.
+                                    value={getQuantity(caract.id_caracteristica) || ''} 
+                                    placeholder="0"
+                                    onChange={(e) => handleQuantityChange(caract.id_caracteristica, e.target.value)}
+                                    className="w-20 p-1 border text-center rounded-lg focus:outline-none focus:ring-1"
+                                    style={{ borderColor: PRIMARY_COLOR, '--tw-ring-color': PRIMARY_COLOR }}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
