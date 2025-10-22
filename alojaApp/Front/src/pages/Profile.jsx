@@ -10,9 +10,6 @@ const NAV_HEIGHT = 72;
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const PROFILE_URL = `${API_BASE}/users/me`;
 
-function classNames(...xs) {
-  return xs.filter(Boolean).join(" ");
-}
 function onlyDigits(x = "") {
   return String(x).replace(/\D/g, "");
 }
@@ -27,6 +24,10 @@ function maskCBU(cbu = "") {
   if (s.length <= 6) return s;
   return `${s.slice(0, 3)}-${s.slice(3, 6)} •••• •••• •••• ${s.slice(-3)}`;
 }
+function detectRole(u = {}) {
+  if (u.role === "host" || u.rol === "host" || u.isHost || u.es_anfitrion) return "host";
+  return "guest";
+}
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
@@ -35,14 +36,11 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState(null);
   const [form, setForm] = useState({});
-  const [errs, setErrs] = useState({});
 
-  // 🚀 Cargar datos del usuario actual
+  // Cargar datos del usuario actual
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError("");
+    (async () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch(PROFILE_URL, {
@@ -52,28 +50,35 @@ export default function Profile() {
           },
           credentials: "include",
         });
-
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const userData = json.data || json;
 
         if (!cancelled) {
           setData(userData);
-          setForm(userData);
+          setForm({
+            nombre: userData.nombre || "",
+            apellido: userData.apellido || "",
+            dni: userData.dni || "",
+            correo: userData.correo || userData.email || "",
+            telefono: userData.telefono || userData.phone || "",
+            calle: userData.calle || "",
+            numero: userData.numero || "",
+            cbu: userData.cbu || "",
+          });
         }
       } catch (e) {
         console.error("[Perfil] Error al cargar:", e);
-        if (!cancelled)
-          setError("No se pudo cargar el perfil. Iniciá sesión nuevamente.");
+        if (!cancelled) setError("No se pudo cargar el perfil. Iniciá sesión nuevamente.");
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  const role = useMemo(() => detectRole(data || {}), [data]);
+  const isHost = role === "host";
 
   const title = useMemo(
     () => `${data?.nombre ?? "Usuario"} ${data?.apellido ?? ""}`.trim(),
@@ -88,21 +93,41 @@ export default function Profile() {
     setSaving(true);
     try {
       const token = localStorage.getItem("token");
+      // Solo enviamos los campos visibles para el rol
+      const payload = isHost
+        ? {
+            nombre: form.nombre,
+            apellido: form.apellido,
+            dni: onlyDigits(form.dni),
+            correo: form.correo,          // normalmente no editable en back
+            telefono: form.telefono,
+            calle: form.calle,
+            numero: form.numero,
+            cbu: onlyDigits(form.cbu).slice(0, 22),
+          }
+        : {
+            nombre: form.nombre,
+            apellido: form.apellido,
+            dni: onlyDigits(form.dni),
+            correo: form.correo,          // normalmente no editable en back
+          };
+
       const res = await fetch(PROFILE_URL, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const updated = await res.json();
-      setData(updated.data || updated);
+      const u = updated.data || updated;
+      setData(u);
       setEdit(false);
     } catch (e) {
       console.error("[Perfil] Error guardando:", e);
-      setError("No se pudo guardar. Probá más tarde.");
+      alert("No se pudo guardar. Probá más tarde.");
     } finally {
       setSaving(false);
     }
@@ -182,6 +207,7 @@ export default function Profile() {
 
       <main className="mx-auto max-w-7xl px-4 pb-10">
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Panel izquierdo (form) */}
           <div className="lg:col-span-2 bg-white shadow-md rounded-2xl p-5">
             <div className="mb-5 flex items-center gap-4">
               <div
@@ -202,18 +228,23 @@ export default function Profile() {
                   className="text-2xl font-extrabold"
                   style={{ color: TEXT_DARK }}
                 >
-                  {title}
+                  {`${data?.nombre || ""} ${data?.apellido || ""}`.trim() || "Tu nombre"}
                 </h2>
                 <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                  Miembro desde
+                  Miembro desde{" "}
                   {new Date(
-                    data?.fecha_creacion || Date.now()
+                    data?.fecha_creacion || data?.created_at || Date.now()
                   ).toLocaleDateString()}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Rol: <b>{isHost ? "Anfitrión" : "Huésped"}</b>
                 </p>
               </div>
             </div>
 
+            {/* Campos por rol */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Siempre (guest y host) */}
               <Field
                 label="Nombre"
                 value={form.nombre}
@@ -233,53 +264,85 @@ export default function Profile() {
                 disabled={!edit}
               />
               <Field label="Correo" value={form.correo} disabled={true} />
-              <Field
-                label="Calle"
-                value={form.calle || ""}
-                onChange={(v) => onChange("calle", v)}
-                disabled={!edit}
-              />
-              <Field
-                label="Número"
-                value={form.numero || ""}
-                onChange={(v) => onChange("numero", v)}
-                disabled={!edit}
-              />
-              <Field
-                label="CBU"
-                value={form.cbu || ""}
-                onChange={(v) => onChange("cbu", onlyDigits(v).slice(0, 22))}
-                disabled={!edit}
-                helper={maskCBU(form.cbu)}
-              />
+
+              {/* Solo anfitrión */}
+              {isHost && (
+                <>
+                  <Field
+                    label="Teléfono"
+                    value={form.telefono}
+                    onChange={(v) => onChange("telefono", v)}
+                    disabled={!edit}
+                  />
+                  <Field
+                    label="Calle"
+                    value={form.calle || ""}
+                    onChange={(v) => onChange("calle", v)}
+                    disabled={!edit}
+                  />
+                  <Field
+                    label="Número"
+                    value={form.numero || ""}
+                    onChange={(v) => onChange("numero", v)}
+                    disabled={!edit}
+                  />
+                  <Field
+                    label="CBU"
+                    value={form.cbu || ""}
+                    onChange={(v) => onChange("cbu", onlyDigits(v).slice(0, 22))}
+                    disabled={!edit}
+                    helper={maskCBU(form.cbu)}
+                  />
+                </>
+              )}
             </div>
           </div>
 
+          {/* Panel derecho (resumen) */}
           <aside className="rounded-2xl bg-white shadow-md p-5 space-y-4">
             <h3 className="text-lg font-semibold" style={{ color: TEXT_DARK }}>
               Resumen
             </h3>
-            <KeyValue
-              label="Localidad"
-              value={data?.localidad?.nombre || "—"}
-            />
-            <KeyValue
-              label="Ciudad"
-              value={data?.localidad?.ciudad?.nombre_ciudad || "—"}
-            />
-            <KeyValue
-              label="País"
-              value={data?.localidad?.ciudad?.pais?.nombre_pais || "—"}
-            />
-            <div className="h-px bg-black/10 my-2" />
+
+            {/* Solo anfitrión: ubicación */}
+            {isHost && (
+              <>
+                <KeyValue
+                  label="Localidad"
+                  value={
+                    data?.localidad?.nombre ||
+                    data?.localidad ||
+                    "—"
+                  }
+                />
+                <KeyValue
+                  label="Ciudad"
+                  value={
+                    data?.localidad?.ciudad?.nombre_ciudad ||
+                    data?.ciudad ||
+                    "—"
+                  }
+                />
+                <KeyValue
+                  label="País"
+                  value={
+                    data?.localidad?.ciudad?.pais?.nombre_pais ||
+                    data?.pais ||
+                    "—"
+                  }
+                />
+                <div className="h-px bg-black/10 my-2" />
+              </>
+            )}
+
             <KeyValue
               label="Usuario #"
-              value={String(data?.id_usuario || "—")}
+              value={String(data?.id_usuario || data?.id || "—")}
             />
             <KeyValue
               label="Miembro desde"
               value={new Date(
-                data?.fecha_creacion || Date.now()
+                data?.fecha_creacion || data?.created_at || Date.now()
               ).toLocaleDateString()}
             />
           </aside>
@@ -320,7 +383,7 @@ function KeyValue({ label, value }) {
     <div className="flex justify-between text-sm">
       <span style={{ color: TEXT_MUTED }}>{label}</span>
       <span className="font-medium" style={{ color: TEXT_DARK }}>
-        {value}
+        {value || "—"}
       </span>
     </div>
   );
