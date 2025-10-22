@@ -1,9 +1,8 @@
 // src/models/localidad.model.js
-
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
 
-const localidadModel = sequelize.define(
+const Localidad = sequelize.define(
   "Localidad",
   {
     id_localidad: {
@@ -15,14 +14,17 @@ const localidadModel = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    // puedes añadir 'id_provincia' o 'codigo_postal' si los tienes
+    // FK -> ciudades.id_ciudad
+    id_ciudad: {
+      type: DataTypes.INTEGER,
+      allowNull: true,              // ponelo en false si tu esquema lo exige
+      references: { model: "ciudades", key: "id_ciudad" },
+    },
   },
   {
-    sequelize,
-    modelName: "Localidad",
-    tableName: "localidades", // El nombre de la tabla que referencia tu propertyModel
+    tableName: "localidades",
     timestamps: false,
   }
 );
 
-export default localidadModel;
+export default Localidad;
