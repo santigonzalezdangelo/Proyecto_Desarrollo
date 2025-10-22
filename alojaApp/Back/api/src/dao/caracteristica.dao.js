@@ -1,4 +1,4 @@
-import PostgresDAO from './postgres.dao.js'; 
+import PostgresDAO from './postgres.dao.js';
 import { caracteristicaModel, caracteristicaPropiedadModel } from '../models/associations.js'; // Asumo que el modelo de característica existe
 
 class CaracteristicaDAO extends PostgresDAO {
@@ -6,7 +6,16 @@ class CaracteristicaDAO extends PostgresDAO {
     super(caracteristicaModel);
     this.caracteristicaPropiedadModel = caracteristicaPropiedadModel;
   }
-  getAll = async () => {
+  create = async (data) => { // Método para crear una característica (usa el método 'create' de Sequelize heredado/disponible)
+    try {
+      // Espera { nombre_caracteristica, nombre_categoria }
+      return await this.model.create(data);
+    } catch (error) {
+      console.error("Error creating characteristic:", error);
+      throw new Error(error);
+    }
+  };
+  getAll = async () => { // Método para obtener todas las características
       try {
           return await this.model.findAll();
       } catch (error) {
@@ -14,6 +23,7 @@ class CaracteristicaDAO extends PostgresDAO {
           throw new Error(error);
       }
   };
+
 
   // --- MÉTODOS PARA CARACTERISTICAS_PROPIEDAD ---
   
