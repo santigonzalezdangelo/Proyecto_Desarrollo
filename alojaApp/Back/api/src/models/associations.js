@@ -11,6 +11,8 @@ import localidadModel from "./localidad.model.js";
 import ciudadModel from "./ciudad.model.js";
 import paisModel from "./pais.model.js";
 import ratingPropertyModel from "./ratingProperty.model.js";
+import caracteristicaModel from "./caracteristica.model.js";
+import caracteristicaPropiedadModel from "./caracteristicaPropiedad.model.js";
 
 /* ===================== */
 /* 🌍 Relaciones Geográficas */
@@ -38,6 +40,30 @@ userModel.hasMany(propertyModel, { foreignKey: "id_anfitrion", as: "properties" 
 // Localidad ↔ Propiedad
 propertyModel.belongsTo(localidadModel, { foreignKey: "id_localidad", as: "localidad" });
 localidadModel.hasMany(propertyModel, { foreignKey: "id_localidad", as: "properties" });
+
+// Propiedad tiene muchas Caracteristicas a través de CaracteristicasPropiedad
+propertyModel.belongsToMany(caracteristicaModel, {
+  through: caracteristicaPropiedadModel,
+  foreignKey: "id_propiedad",
+  otherKey: "id_caracteristica",
+  as: "caracteristicas",
+});
+
+// Característica tiene muchas Propiedades a través de CaracteristicasPropiedad
+caracteristicaModel.belongsToMany(propertyModel, {
+  through: caracteristicaPropiedadModel,
+  foreignKey: "id_caracteristica",
+  otherKey: "id_propiedad",
+  as: "propiedades",
+});
+
+// Definir las relaciones directas con la tabla intermedia para facilitar el DAO
+caracteristicaPropiedadModel.belongsTo(propertyModel, { foreignKey: 'id_propiedad' });
+caracteristicaPropiedadModel.belongsTo(caracteristicaModel, { foreignKey: 'id_caracteristica' });
+propertyModel.hasMany(caracteristicaPropiedadModel, { foreignKey: 'id_propiedad', as: 'caracteristicas_propiedad', onDelete: "CASCADE" });
+caracteristicaModel.hasMany(caracteristicaPropiedadModel, { foreignKey: 'id_caracteristica', as: 'caracteristicas_propiedad' });
+
+
 
 /* ===================== */
 /* 📸 Fotos */
@@ -108,5 +134,7 @@ export {
   localidadModel,
   ciudadModel,
   paisModel,
-  ratingPropertyModel
+  ratingPropertyModel,
+  caracteristicaModel,
+  caracteristicaPropiedadModel
 };

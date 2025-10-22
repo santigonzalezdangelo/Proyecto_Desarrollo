@@ -253,6 +253,29 @@ class PropertyController {
     }
   };
 
+  // --- NUEVO MÉTODO PARA CARACTERÍSTICAS ---
+    setCaracteristicas = async (req, res) => {
+        const { id_propiedad } = req.params;
+        const { id_usuario } = req.user; // Asumo autenticación
+        const { caracteristicas } = req.body; // Array de { id_caracteristica, cantidad }
+        if (!caracteristicas || !Array.isArray(caracteristicas)) {
+            return res.status(400).json({ error: "Datos de características inválidos." });
+        }
+
+        try {
+            // 1. Verificar si el usuario tiene permiso sobre esta propiedad
+            const property = await PropertyDAO.findByIdAndAnfitrion(id_propiedad, id_usuario);
+            if (!property) {
+                return res.status(403).json({ error: 'No tienes permiso para modificar esta propiedad.' });
+            }
+            // 2. Guardar las características (el DAO se encarga de eliminar y recrear)
+            const result = await CaracteristicaDAO.setCaracteristicasForProperty(id_propiedad, caracteristicas);
+            res.status(200).json({ message: 'Características actualizadas correctamente.', data: result });
+        } catch (error) {
+            console.error('Error al actualizar características de la propiedad:', error);
+            res.status(500).json({ error: 'Error interno del servidor al guardar características.' });
+        }
+    };
 }
 
 export default new PropertyController();
