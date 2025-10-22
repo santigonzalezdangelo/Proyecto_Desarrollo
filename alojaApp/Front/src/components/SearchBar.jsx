@@ -462,6 +462,22 @@ const STICK_OFFSET = 6;
 const FIELD_H = 56;
 const FIELD_H_COMPACT = 44;
 
+const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
+
+async function buscarLocalidades(q) {
+  // probamos sin /api y con /api, por si tu router está montado distinto
+  const paths = ["/localidades/search", "/api/localidades/search"];
+  for (const p of paths) {
+    try {
+      const res = await fetch(`${API_BASE}${p}?q=${encodeURIComponent(q)}`);
+      if (res.ok) return await res.json();
+    } catch {
+      // probamos el siguiente path
+    }
+  }
+  throw new Error("No se encontró un endpoint válido de /localidades/search");
+}
+
 function debounce(fn, wait = 300) {
   let t;
   return (...args) => {
@@ -669,16 +685,20 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
           return;
         }
         try {
-          const res = await fetch(
-            `http://localhost:4000/localidades/search?q=${encodeURIComponent(
-              q
-            )}`
-          );
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          setSugs(Array.isArray(data) ? data : []);
-          setOpenSugs(true);
-          setActiveIdx(-1);
+         const data = await buscarLocalidades(q);
+
+        // 🔧 Normalizamos para que el resto del componente quede igual
+        const norm = (Array.isArray(data) ? data : []).map(d => ({
+          id_localidad: d.id_localidad ?? d.id ?? d.idLocalidad,
+          localidad: d.localidad ?? d.nombre ?? "",
+          ciudad: d.ciudad ?? d.ciudad_nombre ?? d.ciudadNombre ?? "",
+          pais: d.pais ?? d.pais_nombre ?? d.paisNombre ?? "",
+        }));
+
+        setSugs(norm);
+        setOpenSugs(true);
+        setActiveIdx(-1);
+
         } catch {
           setSugs([]);
           setOpenSugs(false);
@@ -693,25 +713,31 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
     fetchSugs(e.target.value);
   }
   function selectSuggestion(s) {
-    setLocationText(`${s.localidad}, ${s.ciudad}, ${s.pais}`);
+    const tail = [s.ciudad, s.pais].filter(v => v && String(v).trim()).join(", ");
+    const text = tail ? `${s.localidad}, ${tail}` : s.localidad;
+    setLocationText(text);
     setIdLocalidad(String(s.id_localidad));
     setOpenSugs(false);
   }
+
   function handleKeyDown(e) {
-    if (!openSugs || sugs.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIdx((i) => (i + 1) % sugs.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length);
-    } else if (e.key === "Enter" && activeIdx >= 0) {
-      e.preventDefault();
-      selectSuggestion(sugs[activeIdx]);
-    } else if (e.key === "Escape") {
-      setOpenSugs(false);
-    }
+  if (!openSugs || sugs.length === 0) return;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    setActiveIdx((i) => (i + 1) % sugs.length);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    setActiveIdx((i) => (i - 1 + sugs.length) % sugs.length);
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    const idx = activeIdx >= 0 ? activeIdx : 0;
+    if (sugs[idx]) selectSuggestion(sugs[idx]);
+  } else if (e.key === "Escape") {
+    setOpenSugs(false);
   }
+}
+
 
   // ====== LAYOUT ======
   const containerStyle =
@@ -776,7 +802,7 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
               borderRadius: 18,
               padding: disableFloatingOnMobile ? "12px 0" : "8px 0",
               boxShadow: "0 6px 18px rgba(0,0,0,0.10)",
-              overflow: "hidden",
+              overflow: "visible",
             }}
           >
             <div
@@ -804,10 +830,12 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
                       onChange={handleLocationChange}
                       onKeyDown={handleKeyDown}
                       onFocus={() => sugs.length && setOpenSugs(true)}
+                      onBlur={() => setTimeout(() => setOpenSugs(false), 120)}   // ← NUEVO
                       placeholder="Localidad (ej.: Centro, Palermo...)"
                       className="w-full bg-transparent outline-none"
                       aria-label="Destino"
                     />
+
                   </Field>
                   {openSugs && sugs.length > 0 && (
                     <ul
@@ -819,21 +847,20 @@ export function SearchBar({ variant = "embedded", anchorRef, onSearch }) {
                           key={s.id_localidad}
                           role="option"
                           aria-selected={activeIdx === idx}
-                          className={`px-3 py-2 cursor-pointer ${
-                            activeIdx === idx ? "bg-slate-100" : ""
-                          }`}
+                          className={`px-3 py-2 cursor-pointer ${activeIdx === idx ? "bg-slate-100" : ""}`}
                           onMouseDown={(e) => {
                             e.preventDefault();
                             selectSuggestion(s);
                           }}
                           onMouseEnter={() => setActiveIdx(idx)}
                         >
-                          <div className="text-sm font-medium">
-                            {s.localidad}
-                          </div>
-                          <div className="text-xs text-slate-600">
-                            {s.ciudad}, {s.pais}
-                          </div>
+                          <div className="text-sm font-medium">{s.localidad}</div>
+                          {/* solo mostramos ciudad/país si existen */}
+                          {([s.ciudad, s.pais].filter(v => v && String(v).trim()).length > 0) && (
+                            <div className="text-xs text-slate-600">
+                              {[s.ciudad, s.pais].filter(v => v && String(v).trim()).join(", ")}
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>

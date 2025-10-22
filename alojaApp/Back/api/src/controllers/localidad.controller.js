@@ -22,6 +22,30 @@ class LocalidadController {
       res.status(500).json({ error: "Error obteniendo localidades" });
     }
   };
+
+  searchLocalidades = async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (q.length < 1) return res.status(200).json([]);
+      const rows = await LocalidadDAO.searchLocalidades(q);
+
+      // Normalizamos al shape que espera el front:
+      // { id_localidad, localidad, ciudad, pais }
+      const out = rows.map(r => ({
+        id_localidad: r.id_localidad ?? r.id ?? r.dataValues?.id_localidad,
+        localidad: r.nombre ?? r.localidad ?? r.dataValues?.nombre ?? "",
+        ciudad: r.ciudad ?? r.dataValues?.ciudad ?? "",   // si no hay columnas relacionadas, queda vacío
+        pais: r.pais ?? r.dataValues?.pais ?? "",
+      }));
+
+      res.status(200).json(out);
+    } catch (error) {
+      console.error("Error buscando localidades:", error);
+      res.status(500).json({ error: "Error buscando localidades" });
+    }
+  };
 }
+
+
 
 export default new LocalidadController();
