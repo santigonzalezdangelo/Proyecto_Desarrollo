@@ -12,6 +12,7 @@ import Reservas from "./pages/reservas.jsx";
 import Register from "./pages/Register.jsx";
 import Reserva from "./pages/Reserva.jsx";
 import PropiedadesFiltradas from "./pages/propiedades-filtradas.jsx";
+import ConvierteteEnAnfitrion from "./pages/conviertete-en-anfitrion.jsx";
 
 
 export default function App() {
@@ -29,7 +30,7 @@ export default function App() {
           path="/propiedades-encontradas"
           element={<PropiedadesEncontradas />} />
       <Route path="/propiedades-filtradas" element={<PropiedadesFiltradas />} />
-
+      <Route path="/conviertete-en-anfitrion" element={<ConvierteteEnAnfitrion />} />
     </Routes>
   );
 }
