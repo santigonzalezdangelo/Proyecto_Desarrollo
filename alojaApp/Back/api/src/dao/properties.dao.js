@@ -12,7 +12,7 @@ export async function getFeaturedDAO() {
       p.descripcion,
       p.precio_por_noche,
       p.cantidad_huespedes,
-      l.nombre_localidad AS localidad,
+      l.nombre AS localidad,
       c.nombre_ciudad   AS ciudad,
       pa.nombre_pais    AS pais,
       -- si luego tienes calificaciones_propiedad, podrías hacer AVG:
@@ -26,7 +26,7 @@ export async function getFeaturedDAO() {
     LEFT JOIN calificaciones_propiedad cp ON cp.id_reserva IN (
       SELECT r.id_reserva FROM reservas r WHERE r.id_propiedad = p.id_propiedad
     )
-    GROUP BY p.id_propiedad, l.nombre_localidad, c.nombre_ciudad, pa.nombre_pais
+    GROUP BY p.id_propiedad, l.nombre, c.nombre_ciudad, pa.nombre_pais
     ORDER BY rating DESC, p.id_propiedad DESC
     LIMIT 12;
   `;
@@ -39,6 +39,8 @@ export async function getFeaturedDAO() {
  * Excluye propiedades con reservas superpuestas:
  *  r.fecha_inicio < :fecha_fin AND r.fecha_fin > :fecha_inicio
  */
+// dao/properties.dao.js
+
 export async function getAvailableDAO(params) {
   const {
     fecha_inicio, fecha_fin, huespedes, id_localidad, precio_max,
@@ -48,20 +50,20 @@ export async function getAvailableDAO(params) {
   const where = [];
   const repl = { fecha_inicio, fecha_fin, huespedes, id_localidad };
 
-  // básicos (tu lógica actual)
+  // Básicos
   where.push("p.cantidad_huespedes >= :huespedes");
   where.push("p.id_localidad = :id_localidad");
-  if (precio_max) {
+  if (precio_max != null) {
     where.push("p.precio_por_noche <= :precio_max");
     repl.precio_max = precio_max;
   }
 
-  // AVANZADOS
-  if (precio_min) {
+  // Avanzados
+  if (precio_min != null) {
     where.push("p.precio_por_noche >= :precio_min");
     repl.precio_min = precio_min;
   }
-  if (id_tipo_propiedad) {
+  if (id_tipo_propiedad != null) {
     where.push("p.id_tipo_propiedad = :id_tipo_propiedad");
     repl.id_tipo_propiedad = id_tipo_propiedad;
   }
@@ -72,7 +74,6 @@ export async function getAvailableDAO(params) {
   let havingRating = "";
 
   if (Array.isArray(amenities) && amenities.length) {
-    // solo propiedades que tengan TODAS las amenities pedidas
     joinAmenities = `
       JOIN (
         SELECT cp.id_propiedad
@@ -86,7 +87,7 @@ export async function getAvailableDAO(params) {
     repl.amenities_count = amenities.length;
   }
 
-  if (rating_min) {
+  if (rating_min != null) {
     joinRatings = `
       LEFT JOIN reservas r2 ON r2.id_propiedad = p.id_propiedad
       LEFT JOIN calificaciones_propiedad cal ON cal.id_reserva = r2.id_reserva
@@ -95,11 +96,16 @@ export async function getAvailableDAO(params) {
     repl.rating_min = rating_min;
   }
 
+  // SELECT rating seguro (si no hay joinRatings => 0)
+  const ratingExpr = joinRatings ? "COALESCE(AVG(cal.puntuacion),0)" : "0";
+
   // ORDER BY
   let orderBy = "ORDER BY p.id_propiedad DESC";
   if (order_by === "precio_asc")  orderBy = "ORDER BY p.precio_por_noche ASC";
   if (order_by === "precio_desc") orderBy = "ORDER BY p.precio_por_noche DESC";
-  if (order_by === "rating_desc") orderBy = "ORDER BY AVG(cal.puntuacion) DESC NULLS LAST";
+  if (order_by === "rating_desc" && joinRatings) {
+    orderBy = "ORDER BY AVG(cal.puntuacion) DESC NULLS LAST";
+  }
 
   const SQL = `
     SELECT
@@ -107,11 +113,11 @@ export async function getAvailableDAO(params) {
       p.descripcion,
       p.precio_por_noche,
       p.cantidad_huespedes,
-      l.nombre_localidad AS localidad,
+      l.nombre          AS localidad,
       c.nombre_ciudad   AS ciudad,
       pa.nombre_pais    AS pais,
       MIN(f.url_foto)   AS imagen_url,
-      COALESCE(AVG(cal.puntuacion),0) AS rating
+      ${ratingExpr}     AS rating
     FROM propiedades p
     JOIN localidades l ON l.id_localidad = p.id_localidad
     JOIN ciudades    c ON c.id_ciudad    = l.id_ciudad
@@ -129,7 +135,7 @@ export async function getAvailableDAO(params) {
           AND r.fecha_fin    > :fecha_inicio
       )
     GROUP BY
-      p.id_propiedad, l.nombre_localidad, c.nombre_ciudad, pa.nombre_pais
+      p.id_propiedad, l.nombre, c.nombre_ciudad, pa.nombre_pais
     ${havingRating}
     ${orderBy}
     LIMIT 100;
