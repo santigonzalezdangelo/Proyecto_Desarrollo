@@ -135,6 +135,13 @@ export default function Reserva() {
       alert(`❌ No se pudo crear la reserva: ${err.message}`);
     }
   }
+  // 🟡 Generar iniciales del anfitrión
+function getInitials(nombre, apellido) {
+  const n = nombre?.charAt(0)?.toUpperCase() || "";
+  const a = apellido?.charAt(0)?.toUpperCase() || "";
+  return n + a;
+}
+
 
 
   if (loading) return <p className="p-8 text-center">Cargando...</p>;
@@ -263,28 +270,23 @@ export default function Reserva() {
           {/* 🧍 anfitrión + comentarios */}
           <div className="flex flex-col gap-8 justify-start bg-[#FFF6DB] p-4 rounded-2xl">
             <div className="flex items-center gap-4">
-              <img
-                src="https://via.placeholder.com/150?text=Anfitrion"
-                alt={propiedad.anfitrion?.nombre}
-                className="w-24 h-24 rounded-full object-cover shadow-md"
-              />
+              {/* 🧱 Cuadrado con iniciales */}
+              <div className="w-14 h-14 flex items-center justify-center rounded-xl bg-[#FFF1C1] text-[#0F172A] font-bold text-lg shadow-md">
+                {getInitials(propiedad.anfitrion?.nombre, propiedad.anfitrion?.apellido)}
+              </div>
+
+              {/* 🧍 Nombre del anfitrión */}
               <div>
                 <h4 className="font-semibold text-lg">
                   Anfitrión: {propiedad.anfitrion?.nombre} {propiedad.anfitrion?.apellido}
                 </h4>
               </div>
             </div>
-
             {propiedad.calificaciones?.length > 0 && (
               <div className="border-t border-black/10 pt-4">
                 <h3 className="text-xl font-semibold mb-2">Comentarios</h3>
                 {propiedad.calificaciones.map((c) => (
                   <div key={c.id_calificacion || Math.random()} className="flex items-start gap-3 mb-4">
-                    <img
-                      src="https://randomuser.me/api/portraits/women/44.jpg"
-                      alt="Huésped"
-                      className="w-12 h-12 rounded-full object-cover shadow-sm"
-                    />
                     <div>
                       <p className="font-semibold text-slate-800">⭐ {c.puntuacion}</p>
                       <p className="text-slate-700 mt-1 italic">"{c.comentario}"</p>
