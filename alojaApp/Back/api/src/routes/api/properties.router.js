@@ -3,9 +3,9 @@ import PropertiesController from "../../controllers/properties.controller.js"; /
 import PropertyController from "../../controllers/property.controller.js";
 import {
   requireAuth,
-  verifyRole,
+  verifyRoleName,
   requireRole,
-  ROLES,
+  ROLE_NAMES,
 } from "../../middlewares/authz.js";
 
 const router = Router();
@@ -19,7 +19,7 @@ router.get("/my-properties", requireAuth, PropertyController.getMyProperties);
 router.post(
   "/createProperty",
   requireAuth,
-  verifyRole([ROLES.ANFITRION]),
+  verifyRoleName([ROLE_NAMES.ANFITRION]), // ahora por nombre
   PropertyController.createProperty
 );
 router.put(
