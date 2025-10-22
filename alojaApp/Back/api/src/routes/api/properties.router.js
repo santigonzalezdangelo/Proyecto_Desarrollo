@@ -43,6 +43,7 @@ router.put(
   requireAuth,
   PropertyController.setCaracteristicasForProperty // <-- Nuevo método
 );
+router.get("/filters", PropertiesController.getFilters);
 
 // --- PROPIEDADES DESTACADAS Y DISPONIBLES ---
 router.get("/featured", PropertiesController.getFeaturedProperties);

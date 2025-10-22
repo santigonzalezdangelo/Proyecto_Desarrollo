@@ -1,6 +1,6 @@
 // src/pages/Reserva.jsx
 import React, { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/NavBar";
 import PropertyCard from "../components/PropertyCard";
 import SearchButton from "../components/SearchButton";
 import MapView from "../components/MapView";
