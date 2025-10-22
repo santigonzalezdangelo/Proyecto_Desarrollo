@@ -1,5 +1,9 @@
 import { Op } from "sequelize";
-import { reservationModel, propertyModel, stateModel } from "../models/associations.js";
+import {
+  reservationModel,
+  propertyModel,
+  stateModel,
+} from "../models/associations.js";
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
@@ -36,7 +40,9 @@ class ReservationDAO {
     });
 
     if (overlap) {
-      throw new Error("La propiedad ya está reservada en las fechas seleccionadas");
+      throw new Error(
+        "La propiedad ya está reservada en las fechas seleccionadas"
+      );
     }
 
     // 🔹 Obtener propiedad y precio
@@ -98,3 +104,4 @@ class ReservationDAO {
 }
 
 export const reservationDao = new ReservationDAO();
+

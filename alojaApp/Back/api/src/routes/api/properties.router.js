@@ -1,7 +1,12 @@
 import { Router } from "express";
 import PropertiesController from "../../controllers/properties.controller.js"; // ✅ sin llaves
 import PropertyController from "../../controllers/property.controller.js";
-import { requireAuth } from "../../middlewares/auth.js";
+import {
+  requireAuth,
+  verifyRole,
+  requireRole,
+  ROLES,
+} from "../../middlewares/authz.js";
 
 const router = Router();
 
@@ -11,9 +16,22 @@ router.get("/getPropertiesById/:id", PropertyController.getPropertyById);
 
 // --- PANEL DE ANFITRIÓN (Privadas) ---
 router.get("/my-properties", requireAuth, PropertyController.getMyProperties);
-router.post("/createProperty", requireAuth, PropertyController.createProperty);
-router.put("/updatePropertyById/:id", requireAuth, PropertyController.updateProperty);
-router.delete("/deletePropertyById/:id", requireAuth, PropertyController.deleteProperty);
+router.post(
+  "/createProperty",
+  requireAuth,
+  verifyRole([ROLES.ANFITRION]),
+  PropertyController.createProperty
+);
+router.put(
+  "/updatePropertyById/:id",
+  requireAuth,
+  PropertyController.updateProperty
+);
+router.delete(
+  "/deletePropertyById/:id",
+  requireAuth,
+  PropertyController.deleteProperty
+);
 
 // --- PROPIEDADES DESTACADAS Y DISPONIBLES ---
 router.get("/featured", PropertiesController.getFeaturedProperties);
