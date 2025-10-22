@@ -115,6 +115,7 @@ function DestinationsGrid() {
         // Normalizamos campos para que PropertyCard no falle si cambia el shape
         const arr = (raw || []).map((p, i) => ({
           ...p,
+          _id: p.id_propiedad || p.id,
           _titulo:
             p.titulo ||
             p.nombre ||
@@ -164,6 +165,7 @@ function DestinationsGrid() {
         {items.map((p) => (
           <PropertyCard
             key={p._key}
+            id_propiedad={p._id}             
             image={p._imagen}
             title={`${p._titulo}${p._loc ? " – " + p._loc : ""}`}
             subtitle={p._sub}
