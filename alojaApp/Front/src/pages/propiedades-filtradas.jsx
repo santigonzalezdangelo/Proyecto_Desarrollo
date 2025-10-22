@@ -461,7 +461,7 @@ export default function PropiedadesFiltradas() {
       );
 
       try {
-        const res = await fetch(`${API_URL}/api/properties/available?${qs.toString()}`, {
+        const res = await fetch(`${API_URL}/properties/available?${qs.toString()}`, {
           signal: ctrl.signal,
         });
         if (!res.ok) {
