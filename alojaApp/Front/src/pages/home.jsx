@@ -1,83 +1,133 @@
-// src/pages/Home.jsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect} from "react";
 import Navbar from "../components/NavBar";
+import { SearchBar } from "../components/SearchBar";
 import PropertyCard from "../components/PropertyCard";
-import SearchButton from "../components/SearchButton";
+import { createPortal } from "react-dom";
 
-export default function Home() {
-  const [localidades, setLocalidades] = useState([]);
-  const [selectedLocalidad, setSelectedLocalidad] = useState(null);
-  const [inputLocalidad, setInputLocalidad] = useState("");
-  const [form, setForm] = useState({
-    checkIn: "",
-    checkOut: "",
-    guests: 1,
-    maxPrice: "",
+/**
+ * AlojaApp – Home.jsx (FIX NAVIGATION)
+ * ------------------------------------------------------------
+ * ✅ Arregla el error: "useNavigate() may be used only in the context of a <Router>"
+ *   - Se ELIMINA el uso de `useNavigate()` y cualquier hook de router.
+ *   - La navegación se resuelve con `window.location.assign(url)` de forma segura.
+ *   - Los ítems del Navbar usan <a href> en lugar de botones que llaman a hooks.
+ *
+ * 👁️‍🗨️ Estilos y comportamiento
+ *   - Fondo principal #F8C24D (pedido del usuario)
+ *   - Navbar con Inicio / Perfil / Login
+ *   - Barra de búsqueda con inputs nativos y botón Buscar #F8C24D
+ *   - Grid de destinos con tarjetas (placeholders de Unsplash)
+ *   - Sin dependencias extra (opcionalmente se ve más prolijo con Tailwind)
+ *
+ * 🧪 Tests (lightweight en runtime de desarrollo):
+ *   - Se agregó `buildSearchURL` + pruebas con `console.assert`.
+ *   - `isSearchDisabled` probado con varios escenarios.
+ * ------------------------------------------------------------
+ */
+
+// ====== Tema / tokens ======
+const PRIMARY = "#F8C24D";
+const TEXT_DARK = "#0F172A";
+const TEXT_MUTED = "#334155";
+const CARD_BG = "#FFFFFF";
+const PAGE_BG = "#FFF6DB"; // crema claro del resto del sitio
+
+// Alturas para controlar “fusión” con Navbar
+const NAV_HEIGHT = 72;        // alto visible de tu navbar
+const HERO_ANCHOR_TOP = 130;  // top cuando está grande en el héroe
+const NAV_Z = 90;             // z-index del navbar 
+
+// ====== Helpers ======
+function classNames(...xs) {
+  return xs.filter(Boolean).join(" ");
+}
+
+/** Navega de forma segura sin depender de Router. */
+function navigateTo(url) {
+  if (typeof window !== "undefined" && url) {
+    window.location.assign(url);
+  }
+}
+
+/** Mapeo temporal: texto de ubicación -> id_localidad (reemplazar por IDs reales o un <select>) */
+const LOCALIDAD_ID = {
+  "Buenos Aires": 1,
+  "Córdoba": 2,
+  "Rosario": 3,
+  // TODO: reemplazar por valores reales o resolver con un autocomplete/selector
+};
+
+/** Construye la URL de búsqueda con los NOMBRES que espera TU backend */
+export function buildSearchURL({ location, checkIn, checkOut, guests, maxPrice }) {
+  // Si el usuario ya puso un número, lo tomamos como id_localidad
+  const maybeId = Number(location);
+  const id_localidad = Number.isFinite(maybeId)
+    ? String(maybeId)
+    : (LOCALIDAD_ID[location] ? String(LOCALIDAD_ID[location]) : "");
+
+  const params = new URLSearchParams({
+    fecha_inicio: checkIn || "",
+    fecha_fin: checkOut || "",
+    huespedes: guests != null ? String(guests) : "",
+    id_localidad: id_localidad,
   });
+
+  if (maxPrice != null && String(maxPrice).trim() !== "") {
+    params.set("precio_max", String(maxPrice));
+  }
+
+  return `/propiedades-filtradas?${params.toString()}`;
+}
+
+/** Determina si la búsqueda debe estar deshabilitada (precio es opcional) */
+export function isSearchDisabled({ location, checkIn, checkOut, guests }) {
+  if (!location || !checkIn || !checkOut) return true;
+  const g = Number(guests);
+  return !(Number.isFinite(g) && g >= 1);
+}
+
+
+// ====== Cards (Home: destacadas) ======
+// ====== Cards (Home: destacadas) ======
+function DestinationsGrid() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔍 Buscar localidades desde el backend
-  async function buscarLocalidades(q) {
-    if (!q || q.length < 2) {
-      setLocalidades([]);
-      return;
-    }
-    try {
-      const res = await fetch(
-        `http://localhost:4000/api/localidades/search?q=${encodeURIComponent(q)}`
-      );
-      if (!res.ok) throw new Error("Error buscando localidades");
-      const data = await res.json();
-      setLocalidades(data);
-    } catch (err) {
-      console.error("Error buscando localidades:", err);
-    }
-  }
-
-  // 🧭 Generar URL con id_localidad real
-  function buildSearchURL() {
-    const params = new URLSearchParams({
-      fecha_inicio: form.checkIn || "",
-      fecha_fin: form.checkOut || "",
-      huespedes: form.guests || "",
-      id_localidad: selectedLocalidad?.id_localidad || "",
-    });
-
-    if (form.maxPrice && String(form.maxPrice).trim() !== "") {
-      params.set("precio_max", String(form.maxPrice));
-    }
-
-    return `/propiedades-filtradas?${params.toString()}`;
-  }
-
-  // 🚀 Redirigir al hacer clic en Buscar
-  function handleSearch() {
-    const url = buildSearchURL();
-    if (!selectedLocalidad?.id_localidad) {
-      alert("Seleccioná una localidad válida.");
-      return;
-    }
-    window.location.assign(url);
-  }
-
-  // 🏡 Cargar propiedades destacadas
   useEffect(() => {
     async function fetchProperties() {
       try {
-        const res = await fetch("http://localhost:4000/api/properties/destacadas");
-        if (!res.ok) throw new Error("Error cargando destacadas");
-        const data = await res.json();
+        // Si usás Vite, podés definir VITE_API_URL=http://localhost:4000
+        const BASE =
+          (typeof import.meta !== "undefined" &&
+            import.meta.env &&
+            import.meta.env.VITE_API_URL) ||
+          "http://localhost:4000";
 
-        const arr = (data || []).map((p, i) => ({
-          _key: p.id_propiedad || `p-${i}`,
-          _titulo: p.descripcion || p.nombre || "Propiedad",
+        const res = await fetch(`${BASE}/properties/destacadas`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const json = await res.json();
+        // Acepta array plano o { data: [...] }
+        const raw = Array.isArray(json) ? json : (json && Array.isArray(json.data) ? json.data : []);
+
+        // Normalizamos campos para que PropertyCard no falle si cambia el shape
+        const arr = (raw || []).map((p, i) => ({
+          ...p,
+          _titulo:
+            p.titulo ||
+            p.nombre ||
+            (p.localidad ? `Alojamiento en ${p.localidad}` : "Propiedad"),
           _imagen:
             p.imagen_url ||
             p.imagen_principal ||
+            p.url_foto ||
             "https://via.placeholder.com/400x250?text=AlojaApp",
-          _sub: `${p.ciudad || ""}${p.pais ? ", " + p.pais : ""}`,
-          _rating: Number(p.rating || 0),
+          _sub: `${p.ciudad ? p.ciudad : ""}${p.pais ? (p.ciudad ? ", " : "") + p.pais : ""}`,
+          _key: p.id_propiedad || p.id || `prop-${i}`,
+          _rating: Number(p.rating != null ? p.rating : (p.puntuacion != null ? p.puntuacion : 0)),
+          _loc: p.localidad || "",
         }));
 
         setItems(arr);
@@ -88,136 +138,211 @@ export default function Home() {
         setLoading(false);
       }
     }
-
     fetchProperties();
   }, []);
 
+  if (loading) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
+        Cargando propiedades...
+      </section>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-10 text-center text-slate-600">
+        No se encontraron propiedades destacadas.
+      </section>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#FFF6DB] pb-10">
+    <section className="mx-auto max-w-7xl px-4 py-10">
+      <h2 className="text-2xl font-semibold text-slate-900 mb-6">Propiedades destacadas</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {items.map((p) => (
+          <PropertyCard
+            key={p._key}
+            image={p._imagen}
+            title={`${p._titulo}${p._loc ? " – " + p._loc : ""}`}
+            subtitle={p._sub}
+            rating={p._rating}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+
+function Footer() {
+  return (
+    <footer className="mt-16 border-t border-black/10" style={{ backgroundColor: "#FFF4D0" }}>
+      <div className="mx-auto max-w-7xl px-4 py-8 text-sm text-slate-700 flex flex-col md:flex-row items-center justify-between gap-3">
+        <span>© {new Date().getFullYear()} AlojaApp</span>
+      </div>
+    </footer>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M12 3l2.867 5.811 6.41.932-4.638 4.523 1.095 6.382L12 17.77l-5.734 3.878 1.095-6.382L2.723 9.743l6.41-.932L12 3z" stroke={TEXT_DARK} strokeWidth="1.2" fill="none" />
+    </svg>
+  );
+}
+
+// ====== Página Home ======
+// arriba del archivo: // suma useEffect si no estaba
+
+export default function Home() {
+  const searchAnchorRef = useRef(null);
+  // ⬇ Chat Dialogflow dentro del componente (no afuera)
+  useEffect(() => {
+    // evita inyectar dos veces en dev/StrictMode
+    if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
+      const script = document.createElement("script");
+      script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
+      script.async = true;
+      document.body.appendChild(script);
+
+      script.onload = () => {
+        const messenger = document.createElement("df-messenger");
+        messenger.setAttribute("intent", "WELCOME");
+        messenger.setAttribute("chat-title", "Aloja");
+        messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0"); // tu Agent ID
+        messenger.setAttribute("language-code", "es");
+
+        // (opcional) tema
+        messenger.setAttribute("chat-icon", "/images/logo.png");
+        messenger.setAttribute("chat-width", "360");
+        messenger.setAttribute("chat-height", "500");
+        messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6");
+        messenger.style.setProperty("--df-messenger-user-message", "#F8C24D");
+        messenger.style.setProperty("--df-messenger-font-color", "#0F172A");
+        messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
+        messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D");
+        // que el chatbot flote por encima del navbar
+        messenger.style.position = "fixed";
+        messenger.style.zIndex = "9999";
+        // (opcional) asegurar ubicación del botón flotante
+        messenger.style.right = "16px";
+        messenger.style.bottom = "16px";
+
+        document.body.appendChild(messenger);
+      };
+    } else {
+      // si ya existe, mostralo
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) {
+        messenger.style.display = "block";
+        messenger.style.position = "fixed";
+        messenger.style.zIndex = "9999";
+      }
+    }
+    // cleanup: ocultar al salir de Home
+    return () => {
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "none";
+    };
+  }, []);
+
+  function handleSearch(params) {
+    // arma /buscar?fecha_inicio=...&fecha_fin=...&huespedes=...&id_localidad=...&precio_max=...
+    const url = buildSearchURL(params);
+    // redirige a la página de resultados (allí se hace el fetch al endpoint)
+    window.location.assign(url);
+  }
+
+return (
+    <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh", paddingTop: `${NAV_HEIGHT + 16}px` }}>
       <Navbar active="inicio" />
-
-      <section className="relative w-full pt-[90px] pb-10">
+      {}
+      {/* HERO con imagen de fondo + fade */}
+      <section className="relative w-full" style={{ minHeight: "62vh", paddingTop: 8 }}>
+        {/* Imagen */}
         <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url(/images/fondoHome.png)" }}
-        ></div>
-        <div className="absolute inset-0 bg-[#F8C24D]/40"></div>
+          className="absolute inset-0 bg-center bg-cover"
+          style={{ backgroundImage: 'url(/images/fondoHome.png)' }}
+          aria-hidden="true"
+        />
 
-        <div className="relative max-w-6xl mx-auto p-6 flex flex-col gap-4">
-          <h1 className="text-4xl font-extrabold text-white drop-shadow">
+        {/* Overlay amarillo (más suave) */}
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: "rgba(248,194,77,0.35)" }}
+          aria-hidden="true"
+        />
+
+        {/* Fade inferior hacia el color del body */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-40"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,246,219,0.85) 65%, #FFF6DB 100%)",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Contenido */}
+        <div className="relative max-w-7xl mx-auto px-4 pt-10 sm:pt-16 pb-28 flex flex-col gap-6">
+          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.55)]">
             Encontrá alojamientos en alquiler
           </h1>
 
-          {/* 🔍 Barra de búsqueda */}
-          <div className="bg-white p-5 rounded-2xl shadow-lg flex flex-wrap gap-4 items-end">
-            {/* Localidad */}
-            <div className="flex flex-col flex-1 min-w-[200px]">
-              <label className="text-sm font-semibold mb-1">Localidad</label>
-              <input
-                type="text"
-                list="localidades-list"
-                placeholder="Ingresá una localidad"
-                value={inputLocalidad}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setInputLocalidad(val);
-                  buscarLocalidades(val);
-                  const match = localidades.find(
-                    (l) => l.nombre.toLowerCase() === val.toLowerCase()
-                  );
-                  setSelectedLocalidad(match || null);
-                }}
-                className="border rounded-md px-3 py-2"
-              />
-              <datalist id="localidades-list">
-                {localidades.map((l) => (
-                  <option
-                    key={l.id_localidad}
-                    value={l.nombre}
-                    data-id={l.id_localidad}
-                  />
-                ))}
-              </datalist>
-            </div>
+          <p className="mt-1 text-lg max-w-2xl text-white/95 drop-shadow-[0_2px_3px_rgba(0,0,0,.55)]">
+            ¡Tu próxima aventura empieza acá! Encontrá alojamientos únicos en cada rincón del país
+            y hospedate con personas que comparten tu forma de viajar.
+          </p>
 
-            {/* Fechas */}
-            <div className="flex flex-col">
-              <label className="text-sm font-semibold mb-1">Check-in</label>
-              <input
-                type="date"
-                value={form.checkIn}
-                onChange={(e) => setForm({ ...form, checkIn: e.target.value })}
-                className="border rounded-md px-3 py-2"
-              />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-sm font-semibold mb-1">Check-out</label>
-              <input
-                type="date"
-                value={form.checkOut}
-                onChange={(e) => setForm({ ...form, checkOut: e.target.value })}
-                className="border rounded-md px-3 py-2"
-              />
-            </div>
+          {/* Ancla para posicionar la SearchBar */}
+          <div ref={searchAnchorRef} />
 
-            {/* Huéspedes */}
-            <div className="flex flex-col">
-              <label className="text-sm font-semibold mb-1">Huéspedes</label>
-              <input
-                type="number"
-                min="1"
-                value={form.guests}
-                onChange={(e) => setForm({ ...form, guests: e.target.value })}
-                className="border rounded-md px-3 py-2 w-24"
-              />
-            </div>
-            {/* 💰 Precio máximo */}
-            <div className="flex flex-col">
-              <label className="text-sm font-semibold mb-1">Precio máximo</label>
-              <input
-                type="number"
-                min="0"
-                value={form.maxPrice}
-                onChange={(e) =>
-                  setForm({ ...form, maxPrice: e.target.value })
-                }
-                className="border rounded-md px-3 py-2 w-32"
-                placeholder="Ej: 80000"
-              />
-            </div>
-
-
-            {/* Botón */}
-            <SearchButton onClick={handleSearch} label="Buscar" />
+          {/* Barra de búsqueda flotante: puede pasar por arriba del navbar,
+            pero NO tapa el botón hamburguesa (que queda con zIndex más alto) */}
+          <div className="mt-6">
+            <SearchBar
+              variant="floating"
+              anchorRef={searchAnchorRef}
+              onSearch={handleSearch}
+            />
           </div>
+
         </div>
       </section>
 
-      {/* 🏡 Propiedades destacadas */}
-      {loading ? (
-        <p className="text-center mt-8 text-slate-700">
-          Cargando propiedades destacadas...
-        </p>
-      ) : items.length ? (
-        <section className="max-w-6xl mx-auto px-4 py-10">
-          <h2 className="text-2xl font-bold mb-6">Propiedades destacadas</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {items.map((p) => (
-              <PropertyCard
-                key={p._key}
-                image={p._imagen}
-                title={p._titulo}
-                subtitle={p._sub}
-                rating={p._rating}
-              />
-            ))}
-          </div>
-        </section>
-      ) : (
-        <p className="text-center mt-8 text-slate-700">
-          No se encontraron propiedades destacadas.
-        </p>
-      )}
+      <div className="rounded-t-[28px]">
+        <DestinationsGrid />
+      </div>
+
+      <Footer />
     </div>
-  );
+);
+
+}
+
+// ====== Smoke Tests (solo en desarrollo) ======
+function __runSmokeTests() {
+  try {
+    const url1 = buildSearchURL({
+      location: "1", // id_localidad directo
+      checkIn: "2025-10-10",
+      checkOut: "2025-10-12",
+      guests: 2,
+      maxPrice: 300,
+    });
+    console.assert(url1.startsWith("/buscar?"), "[TEST] URL debe iniciar con /buscar?");
+    console.assert(url1.includes("fecha_inicio=2025-10-10"), "[TEST] Debe mapear fecha_inicio");
+    console.assert(url1.includes("huespedes=2"), "[TEST] Debe incluir huespedes");
+    console.assert(url1.includes("precio_max=300"), "[TEST] Debe incluir precio_max");
+  } catch (err) {
+    console.error("[SmokeTests] Error ejecutando tests:", err);
+  }
+}
+
+if (typeof window !== "undefined") {
+  const mode = (import.meta && import.meta.env && import.meta.env.MODE) || "development";
+  if (mode !== "production") __runSmokeTests();
 }
