@@ -45,12 +45,12 @@ class ReservationDAO {
     });
     if (!prop) throw new Error("Propiedad no encontrada");
 
-    // 🔹 Obtener id_estado = 'reservado'
-    const estadoReservado = await stateModel.findOne({
-      where: { nombre_estado: "reservado" },
+    // 🔹 Obtener id_estado = 'confirmado'
+    const estadoConfirmado = await stateModel.findOne({
+      where: { nombre_estado: "confirmado" },
       attributes: ["id_estado"],
     });
-    if (!estadoReservado) throw new Error("Estado 'reservado' no existe");
+    if (!estadoConfirmado) throw new Error("Estado 'confirmado' no existe");
 
     // 🔹 Calcular precio total
     const precio_final = cantidad_dias * Number(prop.precio_por_noche);
@@ -63,7 +63,7 @@ class ReservationDAO {
       precio_final,
       id_usuario,
       id_propiedad,
-      id_estado: estadoReservado.id_estado,
+      id_estado: estadoConfirmado.id_estado,
     });
 
     return reserva;
