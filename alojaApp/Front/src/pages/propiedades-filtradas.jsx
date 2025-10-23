@@ -531,7 +531,7 @@
 // src/pages/propiedades-filtradas.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import NavBar from "../components/NavBar";
+import Navbar from "../components/Navbar";
 import PropertyCard from "../components/PropertyCard";
 
 const NAV_H = 72;
