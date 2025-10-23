@@ -37,7 +37,7 @@ class CaracteristicaDAO extends PostgresDAO {
       const entriesToCreate = caracteristicasArray.map(carac => ({
         id_propiedad: id_propiedad,
         id_caracteristica: carac.id_caracteristica,
-        cantidad: carac.cantidad
+        cantidad: Number(carac.cantidad) || 1 // Asegurar que sea un número
       }));
 
       if (entriesToCreate.length > 0) {

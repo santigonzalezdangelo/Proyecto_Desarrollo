@@ -13,7 +13,6 @@ const router = Router();
 // --- RUTAS PÚBLICAS ---
 router.get("/getAllProperties", PropertyController.getAllProperties);
 router.get("/getPropertiesById/:id", PropertyController.getPropertyById);
-router.get("getPropiedadById/:id", PropertyController.getPropiedadById);
 router.get("/getPropiedadById/:id", PropertyController.getPropiedadById);
 
 // --- PANEL DE ANFITRIÓN (Privadas) ---
@@ -24,7 +23,6 @@ router.get("/my-properties",
 router.post(
   "/createProperty",
   requireAuth,
-  verifyRoleName([ROLE_NAMES.ANFITRION]), // ahora por nombre
   PropertyController.createProperty
 );
 router.put(

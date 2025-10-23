@@ -57,17 +57,43 @@ class PropertyDAO extends PostgresDAO {
 
   // --- Métodos Privados (Anfitrión) (CORREGIDOS) ---
 
-  // Encuentra todas las propiedades de un anfitrión con sus asociaciones
+  // Encuentra todas las propiedades de un anfitrión con sus asociaciones y estado calculado
   findAllByAnfitrion = async (anfitrionId) => {
     try {
-      return await this.model.findAll({
+      const properties = await this.model.findAll({
         where: { id_anfitrion: anfitrionId },
         include: [
             { model: photoModel, as: "fotos" },
             { model: localidadModel, as: "localidad" },
-            { model: tipoPropiedadModel, as: "tipoPropiedad" }
+            { model: tipoPropiedadModel, as: "tipoPropiedad" },
+            { 
+              model: reservationModel, 
+              as: "reservas",
+              where: {
+                fecha_inicio: {
+                  [Op.lte]: new Date() // Fecha de inicio <= hoy
+                },
+                fecha_fin: {
+                  [Op.gte]: new Date() // Fecha de fin >= hoy
+                }
+              },
+              required: false // LEFT JOIN para incluir propiedades sin reservas
+            }
         ],
       });
+
+      // Calcular el estado basado en las reservas activas
+      const propertiesWithStatus = properties.map(property => {
+        const hasActiveReservation = property.reservas && property.reservas.length > 0;
+        const estado_publicacion = hasActiveReservation ? 'RESERVADO' : 'DISPONIBLE';
+        
+        return {
+          ...property.toJSON(),
+          estado_publicacion
+        };
+      });
+
+      return propertiesWithStatus;
     } catch (error) {
       console.error("Error fetching properties by anfitrion:", error);
       throw new Error(error);
@@ -171,7 +197,7 @@ class PropertyDAO extends PostgresDAO {
    */
   getFullById = async (id) => {
     try {
-      return await this.model.findByPk(id, {
+      const result = await this.model.findByPk(id, {
         include: [
           { model: photoModel, as: "fotos" },
           { model: tipoPropiedadModel, as: "tipoPropiedad" },
@@ -209,6 +235,9 @@ class PropertyDAO extends PostgresDAO {
           },
         ],
       });
+      
+      
+      return result;
     } catch (error) {
       console.error("Error fetching full property with relations:", error);
       throw new Error(error);
