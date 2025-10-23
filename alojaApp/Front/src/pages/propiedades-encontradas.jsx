@@ -6,7 +6,6 @@ import { Link, useSearchParams } from "react-router-dom";
 // ✅ Base de la API (usa variable de entorno si existe)
 const API_BASE = import.meta.env?.VITE_API_BASE || "http://localhost:4000/api";
 
-
 /* ===============================
    Colores de tu app
    =============================== */
@@ -106,20 +105,21 @@ const AMENITIES_MOCK = [
   { id: 5, nombre: "Calefacción" },
 ];
 
-
 function FiltersModal({ open, onClose, initial, onApply }) {
   const [local, setLocal] = useState(() => ({
     // distintos al Home
-    tipo: initial?.tipo ?? "",                 // id tipo_propiedad
+    tipo: initial?.tipo ?? "", // id tipo_propiedad
     precio_min: initial?.precio_min ?? "",
     precio_max: initial?.precio_max ?? "",
     estancia_min: initial?.estancia_min ?? "",
-    rating_min: initial?.rating_min ?? "",     // si más adelante calculás rating
-    amenities: Array.isArray(initial?.amenities) 
-      ? initial.amenities 
-      : (typeof initial?.amenities === "string" ? initial.amenities.split(",").map(Number) : []),
+    rating_min: initial?.rating_min ?? "", // si más adelante calculás rating
+    amenities: Array.isArray(initial?.amenities)
+      ? initial.amenities
+      : typeof initial?.amenities === "string"
+      ? initial.amenities.split(",").map(Number)
+      : [],
     solo_con_fotos: !!initial?.solo_con_fotos, // boolean
-    order_by: initial?.order_by ?? "",         // "precio_asc" | "precio_desc" | "rating_desc"
+    order_by: initial?.order_by ?? "", // "precio_asc" | "precio_desc" | "rating_desc"
   }));
 
   useEffect(() => {
@@ -130,9 +130,11 @@ function FiltersModal({ open, onClose, initial, onApply }) {
       precio_max: initial?.precio_max ?? "",
       estancia_min: initial?.estancia_min ?? "",
       rating_min: initial?.rating_min ?? "",
-      amenities: Array.isArray(initial?.amenities) 
-        ? initial.amenities 
-        : (typeof initial?.amenities === "string" ? initial.amenities.split(",").map(Number) : []),
+      amenities: Array.isArray(initial?.amenities)
+        ? initial.amenities
+        : typeof initial?.amenities === "string"
+        ? initial.amenities.split(",").map(Number)
+        : [],
       solo_con_fotos: !!initial?.solo_con_fotos,
       order_by: initial?.order_by ?? "",
     }));
@@ -157,7 +159,9 @@ function FiltersModal({ open, onClose, initial, onApply }) {
       estancia_min: local.estancia_min || undefined,
       rating_min: local.rating_min || undefined,
       amenities:
-        local.amenities && local.amenities.length ? local.amenities.join(",") : undefined,
+        local.amenities && local.amenities.length
+          ? local.amenities.join(",")
+          : undefined,
       solo_con_fotos: local.solo_con_fotos ? "1" : undefined,
       order_by: local.order_by || undefined,
     });
@@ -184,20 +188,26 @@ function FiltersModal({ open, onClose, initial, onApply }) {
             >
               <option value="">Cualquiera</option>
               {TIPOS_MOCK.map((t) => (
-                <option key={t.id} value={t.id}>{t.nombre}</option>
+                <option key={t.id} value={t.id}>
+                  {t.nombre}
+                </option>
               ))}
             </select>
           </label>
 
           {/* Precio mín */}
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Precio por noche (mín)</span>
+            <span className="text-sm text-slate-600">
+              Precio por noche (mín)
+            </span>
             <input
               type="number"
               min="0"
               inputMode="numeric"
               value={local.precio_min}
-              onChange={(e) => setLocal({ ...local, precio_min: e.target.value })}
+              onChange={(e) =>
+                setLocal({ ...local, precio_min: e.target.value })
+              }
               placeholder="Ej: 15000"
               className="border rounded-lg px-3 py-2"
             />
@@ -205,13 +215,17 @@ function FiltersModal({ open, onClose, initial, onApply }) {
 
           {/* Precio máx */}
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Precio por noche (máx)</span>
+            <span className="text-sm text-slate-600">
+              Precio por noche (máx)
+            </span>
             <input
               type="number"
               min="0"
               inputMode="numeric"
               value={local.precio_max}
-              onChange={(e) => setLocal({ ...local, precio_max: e.target.value })}
+              onChange={(e) =>
+                setLocal({ ...local, precio_max: e.target.value })
+              }
               placeholder="Ej: 50000"
               className="border rounded-lg px-3 py-2"
             />
@@ -219,13 +233,17 @@ function FiltersModal({ open, onClose, initial, onApply }) {
 
           {/* Estancia mínima */}
           <label className="flex flex-col gap-1">
-            <span className="text-sm text-slate-600">Estancia mínima (noches)</span>
+            <span className="text-sm text-slate-600">
+              Estancia mínima (noches)
+            </span>
             <input
               type="number"
               min="1"
               inputMode="numeric"
               value={local.estancia_min}
-              onChange={(e) => setLocal({ ...local, estancia_min: e.target.value })}
+              onChange={(e) =>
+                setLocal({ ...local, estancia_min: e.target.value })
+              }
               placeholder="Ej: 2"
               className="border rounded-lg px-3 py-2"
             />
@@ -240,7 +258,9 @@ function FiltersModal({ open, onClose, initial, onApply }) {
               max="5"
               inputMode="numeric"
               value={local.rating_min}
-              onChange={(e) => setLocal({ ...local, rating_min: e.target.value })}
+              onChange={(e) =>
+                setLocal({ ...local, rating_min: e.target.value })
+              }
               placeholder="Ej: 4"
               className="border rounded-lg px-3 py-2"
             />
@@ -251,7 +271,9 @@ function FiltersModal({ open, onClose, initial, onApply }) {
             <input
               type="checkbox"
               checked={!!local.solo_con_fotos}
-              onChange={(e) => setLocal({ ...local, solo_con_fotos: e.target.checked })}
+              onChange={(e) =>
+                setLocal({ ...local, solo_con_fotos: e.target.checked })
+              }
             />
             <span className="text-sm">Mostrar solo propiedades con fotos</span>
           </label>
@@ -274,7 +296,9 @@ function FiltersModal({ open, onClose, initial, onApply }) {
 
         {/* Amenities */}
         <div className="mt-5">
-          <span className="block text-sm text-slate-600 mb-2">Características</span>
+          <span className="block text-sm text-slate-600 mb-2">
+            Características
+          </span>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {AMENITIES_MOCK.map((a) => {
               const checked = (local.amenities || []).includes(a.id);
@@ -316,7 +340,6 @@ function FiltersModal({ open, onClose, initial, onApply }) {
   );
 }
 
-
 /* ===============================
    Página
    =============================== */
@@ -336,110 +359,120 @@ export default function PropiedadesEncontradas() {
   const [openFilters, setOpenFilters] = useState(false);
 
   // ===== Chatbox siempre visible + estilos + rebote doble
-// ==== Chat Dialogflow: montar + animación abrir/cerrar (slide up/down) ====
-useEffect(() => {
-  if (!document.querySelector('script[src*="dialogflow-console/fast/messenger/bootstrap.js"]')) {
-    const script = document.createElement("script");
-    script.src = "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
-    script.async = true;
-    document.body.appendChild(script);
+  // ==== Chat Dialogflow: montar + animación abrir/cerrar (slide up/down) ====
+  useEffect(() => {
+    if (
+      !document.querySelector(
+        'script[src*="dialogflow-console/fast/messenger/bootstrap.js"]'
+      )
+    ) {
+      const script = document.createElement("script");
+      script.src =
+        "https://www.gstatic.com/dialogflow-console/fast/messenger/bootstrap.js?v=1";
+      script.async = true;
+      document.body.appendChild(script);
 
-    script.onload = () => {
-      const messenger = document.createElement("df-messenger");
-      messenger.setAttribute("intent", "WELCOME");
-      messenger.setAttribute("chat-title", "Aloja");
-      messenger.setAttribute("agent-id", "05ffc9d0-9558-4057-ae6b-408b29eb69e0");
-      messenger.setAttribute("language-code", "es");
+      script.onload = () => {
+        const messenger = document.createElement("df-messenger");
+        messenger.setAttribute("intent", "WELCOME");
+        messenger.setAttribute("chat-title", "Aloja");
+        messenger.setAttribute(
+          "agent-id",
+          "05ffc9d0-9558-4057-ae6b-408b29eb69e0"
+        );
+        messenger.setAttribute("language-code", "es");
 
-      // 🎨 Colores personalizados (tema amarillo Aloja)
-      messenger.setAttribute("chat-icon", "/images/logo.png"); // opcional
-      messenger.setAttribute("chat-width", "360");
-      messenger.setAttribute("chat-height", "500");
-      messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6"); // burbujas del bot
-      messenger.style.setProperty("--df-messenger-user-message", "#F8C24D"); // burbujas del usuario
-      messenger.style.setProperty("--df-messenger-font-color", "#0F172A"); // texto
-      messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
-      messenger.style.setProperty("--df-messenger-button-titlebar-color", "#F8C24D"); // barra superior
+        // 🎨 Colores personalizados (tema amarillo Aloja)
+        messenger.setAttribute("chat-icon", "/images/logo.png"); // opcional
+        messenger.setAttribute("chat-width", "360");
+        messenger.setAttribute("chat-height", "500");
+        messenger.style.setProperty("--df-messenger-bot-message", "#FFF8D6"); // burbujas del bot
+        messenger.style.setProperty("--df-messenger-user-message", "#F8C24D"); // burbujas del usuario
+        messenger.style.setProperty("--df-messenger-font-color", "#0F172A"); // texto
+        messenger.style.setProperty("--df-messenger-send-icon", "#F8C24D");
+        messenger.style.setProperty(
+          "--df-messenger-button-titlebar-color",
+          "#F8C24D"
+        ); // barra superior
 
-      document.body.appendChild(messenger);
+        document.body.appendChild(messenger);
+      };
+    } else {
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "block";
+    }
+
+    return () => {
+      const messenger = document.querySelector("df-messenger");
+      if (messenger) messenger.style.display = "none";
     };
-  } else {
-    const messenger = document.querySelector("df-messenger");
-    if (messenger) messenger.style.display = "block";
-  }
-
-  return () => {
-    const messenger = document.querySelector("df-messenger");
-    if (messenger) messenger.style.display = "none";
-  };
-}, []);
-
+  }, []);
 
   // función que hace rebotar el chat
   const bounceHelp = () => {
     const df = document.querySelector("df-messenger");
     if (!df) return;
     df.classList.remove("aloja-bounce");
-    // reflow para reiniciar animación
-    // eslint-disable-next-line no-unused-expressions
+
     df.offsetWidth;
     df.classList.add("aloja-bounce");
   };
 
   // cargar lista (mock por ahora)
-// cargar lista desde el backend (con fallback al MOCK si falla)
-useEffect(() => {
-  const ctrl = new AbortController();
+  // cargar lista desde el backend (con fallback al MOCK si falla)
+  useEffect(() => {
+    const ctrl = new AbortController();
 
-  (async () => {
-    try {
-      const qs = new URLSearchParams(
-        Object.fromEntries(
-          Object.entries({
-            fecha_inicio: filtros.fecha_inicio,
-            fecha_fin: filtros.fecha_fin,
-            huespedes: filtros.huespedes,
-            id_localidad: filtros.id_localidad,
-            precio_max: filtros.precio_max,
-          }).filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== "")
-        )
-      );
+    (async () => {
+      try {
+        const qs = new URLSearchParams(
+          Object.fromEntries(
+            Object.entries({
+              fecha_inicio: filtros.fecha_inicio,
+              fecha_fin: filtros.fecha_fin,
+              huespedes: filtros.huespedes,
+              id_localidad: filtros.id_localidad,
+              precio_max: filtros.precio_max,
+            }).filter(
+              ([, v]) =>
+                v !== undefined && v !== null && String(v).trim() !== ""
+            )
+          )
+        );
 
-      const url = `${API_BASE}/api
+        const url = `${API_BASE}/api
       /properties/available?${qs.toString()}`;
-      const res = await fetch(url, { signal: ctrl.signal });
+        const res = await fetch(url, { signal: ctrl.signal });
 
-      if (!res.ok) {
-        console.warn("[propiedades] Respuesta no OK:", res.status);
-        setList([]);
-        return;
+        if (!res.ok) {
+          console.warn("[propiedades] Respuesta no OK:", res.status);
+          setList([]);
+          return;
+        }
+
+        const data = await res.json();
+        const normalizados = (Array.isArray(data) ? data : []).map((p) => ({
+          ...p,
+          imagen_url:
+            p.imagen_url ||
+            p.url_foto ||
+            p.foto?.nombre ||
+            p.fotos?.[0]?.url_foto ||
+            p.fotos?.[0]?.nombre ||
+            p.foto_url,
+        }));
+
+        setList(normalizados);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("[propiedades] Error fetch:", err);
+          setList([]);
+        }
       }
+    })();
 
-      const data = await res.json();
-      const normalizados = (Array.isArray(data) ? data : []).map((p) => ({
-        ...p,
-        imagen_url:
-          p.imagen_url ||
-          p.url_foto ||
-          p.foto?.nombre ||
-          p.fotos?.[0]?.url_foto ||
-          p.fotos?.[0]?.nombre ||
-          p.foto_url,
-      }));
-
-      setList(normalizados);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        console.error("[propiedades] Error fetch:", err);
-        setList([]);
-      }
-    }
-  })();
-
-  return () => ctrl.abort();
-}, [filtros]);
-
-
+    return () => ctrl.abort();
+  }, [filtros]);
 
   // chips de filtros (solo si existen → NO aparece “1 huéspedes” por defecto)
   const filterChips = useMemo(() => {

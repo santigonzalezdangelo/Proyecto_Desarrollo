@@ -127,14 +127,14 @@ function ReservationCard({ r, highlight = false, compact = false }) {
             <div className="flex items-center gap-2">
               <Calendar className="size-4 text-neutral-600" />
               <span>
-                {fmtDate(r.check_in)} — {fmtDate(r.check_out)} · {nights}{" "}
+                {fmtDate(r.check_in)} — {fmtDate(r.check_out)} · {nights}
                 {nights === 1 ? "noche" : "noches"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <Home className="size-4 text-neutral-600" />
               <span>
-                {r?.guests ?? 1}{" "}
+                {r?.guests ?? 1}
                 {Number(r?.guests ?? 1) === 1 ? "huésped" : "huéspedes"}
               </span>
             </div>
@@ -142,7 +142,7 @@ function ReservationCard({ r, highlight = false, compact = false }) {
 
           {total !== null && (
             <div className="mt-3 text-[15px] font-medium text-neutral-900">
-              Total estimado: ${total}{" "}
+              Total estimado: ${total}
               <span className="text-neutral-600">
                 ({r.property.price_per_night}/noche)
               </span>

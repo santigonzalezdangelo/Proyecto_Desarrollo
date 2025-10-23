@@ -441,7 +441,7 @@ export default function Reserva() {
               </div>
               <div className="w-full">
                 <h4 className="font-semibold text-lg">
-                  Anfitrión: {propiedad.anfitrion?.nombre}{" "}
+                  Anfitrión: {propiedad.anfitrion?.nombre}
                   {propiedad.anfitrion?.apellido}
                 </h4>
 

@@ -196,7 +196,7 @@ export default function Register() {
               {/* Contraseña (full width) */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-neutral-800 mb-1">
-                  Contraseña{" "}
+                  Contraseña
                   <span className="text-neutral-500 font-normal">
                     (mínimo 8)
                   </span>
@@ -289,7 +289,7 @@ export default function Register() {
           </form>
 
           <p className="mt-4 text-center text-sm text-neutral-700">
-            ¿Ya tenés cuenta?{" "}
+            ¿Ya tenés cuenta?
             <Link
               to="/login"
               className="text-amber-700 font-medium hover:underline"

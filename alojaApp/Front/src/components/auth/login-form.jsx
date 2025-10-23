@@ -150,7 +150,7 @@ export default function Login() {
 
               {/* FOOTER */}
               <div className="mt-6 text-center text-sm text-neutral-600">
-                ¿No tenés cuenta?{" "}
+                ¿No tenés cuenta?
                 <a
                   href="/register"
                   className="font-medium text-amber-700 underline-offset-2 hover:underline"

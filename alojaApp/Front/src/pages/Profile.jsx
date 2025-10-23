@@ -378,7 +378,7 @@ export default function Profile() {
                   {title || "Tu nombre"}
                 </h2>
                 <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                  Miembro desde{" "}
+                  Miembro desde
                   {new Date(
                     data?.fecha_creacion || data?.created_at || Date.now()
                   ).toLocaleDateString()}

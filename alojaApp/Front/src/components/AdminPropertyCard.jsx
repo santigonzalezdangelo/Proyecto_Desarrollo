@@ -26,7 +26,7 @@ const AdminPropertyCard = ({ propiedad, onEliminar }) => {
         <p className="text-sm mb-3 text-slate-500">{localidad_nombre}</p>
         <div className="mt-auto">
           <span className="text-xl font-bold text-slate-800">
-            ${precio_por_noche}{" "}
+            ${precio_por_noche}
             <span className="text-sm font-normal text-slate-600">/noche</span>
           </span>
         </div>
