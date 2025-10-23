@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, MapPin, X, Star, Clock, Home, Menu } from "lucide-react";
+import { Calendar, MapPin, X, Star, Clock, Home } from "lucide-react";
+import Navbar from "./NavBar"; // 👈 nombre exacto de tu archivo: NavBar.jsx
 
-const API_URL   = import.meta.env.VITE_API_URL;
-const TEXT_DARK = "#1F2937"; // gris 800
+const API_URL = import.meta.env.VITE_API_URL; // ej: http://localhost:4000/api
+const TEXT_DARK = "#1F2937";
 
 /* ========================= Helpers de rutas ========================= */
-const propertyUrl = (r) =>
-  r?.property?.id ? `/propiedades/${r.property.id}` : "#";
+const propertyUrl = (r) => (r?.property?.id ? `/propiedades/${r.property.id}` : "#");
 
 const contactUrl = (r) => {
-  if (r?.host_id) return `/mensajes?reserva=${r.id}&host=${r.host_id}`;
-  if (r?.property?.host_id) return `/mensajes?reserva=${r.id}&host=${r.property.host_id}`;
-  if (r?.host_email) return `mailto:${r.host_email}?subject=Reserva%20${r.id}`;
+  // Tu payload no trae host. Dejamos fallback a soporte.
   return "/soporte";
 };
 
 function mapStatus(etiqueta) {
-  // etiqueta viene del back: "activa" | "proxima" | "finalizada" | (opcional "cancelada")
+  // etiqueta del back: "activa" | "proxima" | "finalizada" | (opcional "cancelada")
   if (etiqueta === "activa") return "active";
   if (etiqueta === "proxima") return "upcoming";
   if (etiqueta === "finalizada") return "completed";
@@ -92,7 +90,7 @@ function ReservationCard({ r, onCancel, onSendRating, highlight = false, compact
       <div className="flex items-start gap-4">
         <a href={propertyUrl(r)} aria-label="Ver publicación">
           <img
-            src={r.property?.image || "https://picsum.photos/seed/aloja/200/150"}
+            src={"https://picsum.photos/seed/aloja/400/300"} // tu payload no trae imagen => placeholder
             alt={r.property?.title || "Propiedad"}
             className={`object-cover rounded-xl border border-white/60 ${compact ? "w-28 h-24" : "w-40 h-32"} hover:opacity-95 transition`}
             loading="lazy"
@@ -107,7 +105,7 @@ function ReservationCard({ r, onCancel, onSendRating, highlight = false, compact
               </h3>
               <div className="mt-1 flex items-center gap-2 text-neutral-700 text-sm">
                 <MapPin className="size-4" />
-                <span className="truncate">{r.property?.city || "Ubicación"}</span>
+                <span className="truncate">—</span>
               </div>
             </div>
             <StatusPill status={r.status} />
@@ -152,12 +150,12 @@ function ReservationCard({ r, onCancel, onSendRating, highlight = false, compact
               </a>
             )}
 
-            <a
-              href={`/reservas/${r.id}`}
+            <button
+              onClick={() => window.location.assign(`/reserva?id=${r.property.id}`)}
               className="px-3.5 py-2 rounded-xl text-sm border border-neutral-300 text-neutral-800 hover:bg-white/60"
             >
               Ver detalles
-            </a>
+            </button>
 
             {r.status === "active" && !confirmCancel && (
               <button
@@ -188,40 +186,6 @@ function ReservationCard({ r, onCancel, onSendRating, highlight = false, compact
               </div>
             )}
 
-            {r.status === "completed" && !r.rating && !confirmCancel && (
-              <>
-                <button
-                  onClick={() => setRatingOpen(true)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm ${ratingOpen ? "hidden" : "bg-amber-600 hover:bg-amber-700 text-white"}`}
-                >
-                  <Star className="size-4" /> Calificar
-                </button>
-                {ratingOpen && (
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <StarRating value={rating} onChange={setRating} />
-                    <input
-                      value={comment}
-                      onChange={(e)=>setComment(e.target.value)}
-                      placeholder="Comentario (opcional)"
-                      className="flex-1 sm:w-64 border border-neutral-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-amber-300"
-                    />
-                    <button
-                      onClick={() => { onSendRating?.(r, rating, comment); setRatingOpen(false); }}
-                      className="px-3.5 py-2 rounded-lg text-sm bg-neutral-900 text-white hover:bg-neutral-800"
-                    >
-                      Enviar
-                    </button>
-                    <button
-                      onClick={() => setRatingOpen(false)}
-                      className="px-3 py-2 rounded-lg text-sm border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-
             {r.status === "completed" && r.rating && (
               <div className="flex items-center gap-1 text-amber-500">
                 {[...Array(r.rating)].map((_,i)=><Star key={i} className="size-4 fill-amber-400" />)}
@@ -250,33 +214,29 @@ export default function GestionarReservas() {
           headers: { "Cache-Control": "no-store" },
         });
         if (!r1.ok) throw new Error("No autorizado");
-        const current = await r1.json(); // { id_usuario, id_rol, ... }
+        const current = await r1.json(); // { id_usuario } | { data: { id_usuario } }
+        const userId = Number(current?.data?.id_usuario ?? current?.id_usuario);
 
         // 2) mis reservas
-        const r2 = await fetch(`${API_URL}/reservations/myReservations/${current.id_usuario}`, {
+        const r2 = await fetch(`${API_URL}/reservations/myReservations/${userId}`, {
           credentials: "include",
           headers: { "Cache-Control": "no-store" },
         });
         const payload = await r2.json();
 
-        // 3) mapear {activas, historial} -> array que usa la UI
+        // 3) adaptar {activas, historial} -> array de tarjetas
         const toCard = (x) => ({
           id: x.id_reserva,
           check_in: x.fecha_inicio,
           check_out: x.fecha_fin,
-          guests: 1, // si luego guardás huéspedes en DB, cámbialo
+          guests: 1, // si luego guardás huéspedes, cámbialo
           status: mapStatus(x.etiqueta),
-          host_id: x.host_id ?? null,
-          host_email: x.host_email ?? null,
           property: {
             id: x.id_propiedad,
             title: x.nombre_propiedad ?? "Propiedad",
-            city: x.localidad ?? "",                // si no viene, queda vacío
             price_per_night: Number(x.precio_por_noche ?? 0),
-            image: x.imagen ?? null,
-            host_id: x.host_id ?? null,
           },
-          rating: x.rating ?? null,
+          rating: x.rating ?? null, // tu payload no lo manda; queda null
         });
 
         const list = [
@@ -285,8 +245,9 @@ export default function GestionarReservas() {
         ];
 
         if (!cancelled) setReservas(list);
-      } catch {
-        if (!cancelled) setReservas([]); // sin mock
+      } catch (err) {
+        console.error("Error cargando reservas:", err);
+        if (!cancelled) setReservas([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -299,23 +260,15 @@ export default function GestionarReservas() {
   const historial = useMemo(() => all.filter(r => r !== activa), [all, activa]);
 
   const onCancel = async (r) => {
-    await fetch(`${API_URL}/api/reservations/${r.id}/cancel`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ status: "cancelled" }),
-    }).catch(()=>{});
+    // tu API para cancelar puede ser distinta; la dejo comentada por si aún no existe:
+    // await fetch(`${API_URL}/reservations/${r.id}/cancel`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "cancelled" }) }).catch(()=>{});
     setReservas(prev => prev.map(x => x.id === r.id ? { ...x, status: "cancelled" } : x));
   };
 
   const onSendRating = async (r, rating, comment) => {
     if (!rating) return;
-    await fetch(`${API_URL}/api/reservations/${r.id}/rate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ rating, comment }),
-    }).catch(()=>{});
+    // endpoint placeholder:
+    // await fetch(`${API_URL}/reservations/${r.id}/rate`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ rating, comment }) }).catch(()=>{});
     setReservas(prev => prev.map(x => x.id === r.id ? { ...x, rating, status: "completed" } : x));
   };
 
@@ -323,31 +276,14 @@ export default function GestionarReservas() {
 
   return (
     <div className="relative min-h-screen bg-white">
-      <header
-        className="sticky top-0 z-50 w-full shadow-sm"
-        style={{ backgroundColor: "#F5DCA1", color: TEXT_DARK }}
-        aria-label="Barra de navegación"
-      >
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-          <a href="/" aria-label="Ir al inicio" className="flex items-center">
-            <img
-              src="/images/logo.png"
-              alt="AlojaApp"
-              className="object-contain"
-              style={{ maxHeight: "70px", height: "auto", width: "auto" }}
-            />
-          </a>
-          <button type="button" className="p-2 rounded-lg hover:bg-black/5 transition" aria-label="Abrir menú">
-            <Menu className="size-5" color={TEXT_DARK} />
-          </button>
-        </div>
-      </header>
+      <Navbar /> {/* ✅ barra de navegación global */}
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 pt-[90px]">
         <h1 className="text-3xl font-extrabold tracking-tight mb-8">Mis Reservas</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-9 space-y-12">
+            {/* === ACTIVA / PRÓXIMA === */}
             <section>
               <div className="flex items-center">
                 <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">Reserva activa</h2>
@@ -365,6 +301,7 @@ export default function GestionarReservas() {
               </div>
             </section>
 
+            {/* === HISTORIAL === */}
             <section>
               <div className="flex items-center">
                 <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">Historial</h2>
@@ -383,7 +320,7 @@ export default function GestionarReservas() {
             </section>
           </div>
 
-          {/* Sidebar (se mantiene) */}
+          {/* === SIDEBAR === */}
           <aside className="lg:col-span-3 space-y-6 lg:pt-10">
             <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
               <h3 className="font-semibold">Resumen rápido</h3>

@@ -3,9 +3,9 @@ import PropertiesController from "../../controllers/properties.controller.js"; /
 import PropertyController from "../../controllers/property.controller.js";
 import {
   requireAuth,
-  verifyRole,
+  verifyRoleName,
   requireRole,
-  ROLES,
+  ROLE_NAMES,
 } from "../../middlewares/authz.js";
 
 const router = Router();
@@ -41,6 +41,7 @@ router.put(
   requireAuth,
   PropertyController.setCaracteristicasForProperty // <-- Nuevo método
 );
+router.get("/filters", PropertiesController.getFilters);
 
 // --- PROPIEDADES DESTACADAS Y DISPONIBLES ---
 router.get("/featured", PropertiesController.getFeaturedProperties);
