@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Navbar from "../components/NavBar";
+import Navbar from "../components/Navbar";
 import PropertyCard from "../components/PropertyCard";
 import SearchButton from "../components/SearchButton";
 import MapView from "../components/MapView";

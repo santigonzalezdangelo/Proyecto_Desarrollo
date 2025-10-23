@@ -1,21 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, MapPin, X, Star, Clock, Home } from "lucide-react";
-import Navbar from "./NavBar"; // 👈 nombre exacto de tu archivo: NavBar.jsx
+import { Calendar, MapPin, Clock, Home } from "lucide-react";
+import Navbar from "./Navbar.jsx";
 
-const API_URL = import.meta.env.VITE_API_URL; // ej: http://localhost:4000/api
-const TEXT_DARK = "#1F2937";
+const API_URL = import.meta.env.VITE_API_URL;
 
 /* ========================= Helpers de rutas ========================= */
 const propertyUrl = (r) =>
   r?.property?.id ? `/propiedades/${r.property.id}` : "#";
 
-const contactUrl = (r) => {
-  // Tu payload no trae host. Dejamos fallback a soporte.
-  return "/soporte";
-};
-
+/** Estado visual para la pill */
 function mapStatus(etiqueta) {
-  // etiqueta del back: "activa" | "proxima" | "finalizada" | (opcional "cancelada")
   if (etiqueta === "activa") return "active";
   if (etiqueta === "proxima") return "upcoming";
   if (etiqueta === "finalizada") return "completed";
@@ -38,6 +32,7 @@ function StatusPill({ status }) {
       cancelled: "CANCELADA",
       upcoming: "PRÓXIMA",
     }[status] ?? status;
+
   return (
     <span
       className={`inline-flex items-center gap-1 border px-2.5 py-1 rounded-full text-xs font-medium ${
@@ -49,34 +44,6 @@ function StatusPill({ status }) {
   );
 }
 
-function StarRating({ value = 0, onChange }) {
-  const [hover, setHover] = useState(0);
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          onMouseEnter={() => setHover(n)}
-          onMouseLeave={() => setHover(0)}
-          onClick={() => onChange?.(n)}
-          className="p-1"
-          aria-label={`Calificar ${n}`}
-        >
-          <Star
-            className={`size-5 transition ${
-              (hover || value) >= n
-                ? "fill-amber-400 text-amber-400"
-                : "text-neutral-300"
-            }`}
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Tinte cálido por estado */
 function warmTintClasses(status, highlight) {
   const base = "rounded-2xl shadow-sm hover:shadow-md transition border";
   if (status === "cancelled") return `${base} bg-rose-50 border-rose-200`;
@@ -88,36 +55,29 @@ function warmTintClasses(status, highlight) {
 }
 
 /* ========================= Card de Reserva ========================= */
-function ReservationCard({
-  r,
-  onCancel,
-  onSendRating,
-  highlight = false,
-  compact = false,
-}) {
+function ReservationCard({ r, highlight = false, compact = false }) {
   const nights = Math.max(
     1,
     Math.ceil(
       (new Date(r.check_out) - new Date(r.check_in)) / (1000 * 60 * 60 * 24)
     )
   );
-  const total = r.property?.price_per_night
-    ? r.property.price_per_night * nights
-    : null;
 
-  const [ratingOpen, setRatingOpen] = useState(false);
-  const [rating, setRating] = useState(r.rating ?? 0);
-  const [comment, setComment] = useState("");
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const total =
+    typeof r?.property?.price_per_night === "number"
+      ? r.property.price_per_night * nights
+      : null;
 
   const progress = (() => {
-    const ci = +new Date(r.check_in),
-      co = +new Date(r.check_out),
-      now = +new Date();
+    const ci = +new Date(r.check_in);
+    const co = +new Date(r.check_out);
+    const now = +new Date();
     if (now <= ci) return 0;
     if (now >= co) return 100;
     return Math.min(100, Math.max(0, ((now - ci) / (co - ci)) * 100));
   })();
+
+  const photo = r?.property?.photo || r?.property?.cover || null; // viene del endpoint /photos/cover/:id
 
   return (
     <article
@@ -127,14 +87,22 @@ function ReservationCard({
     >
       <div className="flex items-start gap-4">
         <a href={propertyUrl(r)} aria-label="Ver publicación">
-          <img
-            src={"https://picsum.photos/seed/aloja/400/300"} // tu payload no trae imagen => placeholder
-            alt={r.property?.title || "Propiedad"}
-            className={`object-cover rounded-xl border border-white/60 ${
-              compact ? "w-28 h-24" : "w-40 h-32"
-            } hover:opacity-95 transition`}
-            loading="lazy"
-          />
+          {photo ? (
+            <img
+              src={photo}
+              alt={r?.property?.title ?? ""}
+              className={`object-cover rounded-xl border border-white/60 ${
+                compact ? "w-28 h-24" : "w-40 h-32"
+              } hover:opacity-95 transition`}
+              loading="lazy"
+            />
+          ) : (
+            <div
+              className={`bg-neutral-200 rounded-xl border border-white/60 ${
+                compact ? "w-28 h-24" : "w-40 h-32"
+              }`}
+            />
+          )}
         </a>
 
         <div className="flex-1 min-w-0">
@@ -145,11 +113,11 @@ function ReservationCard({
                   compact ? "text-[15px]" : "text-lg"
                 }`}
               >
-                {r.property?.title || "Propiedad"}
+                {r?.property?.title ?? ""}
               </h3>
               <div className="mt-1 flex items-center gap-2 text-neutral-700 text-sm">
                 <MapPin className="size-4" />
-                <span className="truncate">—</span>
+                <span className="truncate">{r?.property?.location ?? ""}</span>
               </div>
             </div>
             <StatusPill status={r.status} />
@@ -166,8 +134,8 @@ function ReservationCard({
             <div className="flex items-center gap-2">
               <Home className="size-4 text-neutral-600" />
               <span>
-                {r.guests ?? 1}{" "}
-                {Number(r.guests) === 1 ? "huésped" : "huéspedes"}
+                {r?.guests ?? 1}{" "}
+                {Number(r?.guests ?? 1) === 1 ? "huésped" : "huéspedes"}
               </span>
             </div>
           </div>
@@ -197,68 +165,20 @@ function ReservationCard({
           )}
 
           <div className="mt-4 flex flex-wrap items-center gap-2 justify-end">
-            {(r.status === "active" || r.status === "upcoming") && (
-              <a
-                href={contactUrl(r)}
-                className="px-3.5 py-2 rounded-xl text-sm border border-neutral-300 text-neutral-800 hover:bg-white/60"
-              >
-                Contactar anfitrión
-              </a>
-            )}
-
             <button
               onClick={() =>
+                r?.property?.id &&
                 window.location.assign(`/reserva?id=${r.property.id}`)
               }
-              className="px-3.5 py-2 rounded-xl text-sm border border-neutral-300 text-neutral-800 hover:bg-white/60"
+              disabled={!r?.property?.id}
+              className={`px-3.5 py-2 rounded-xl text-sm border ${
+                r?.property?.id
+                  ? "border-neutral-300 text-neutral-800 hover:bg-white/60"
+                  : "border-neutral-200 text-neutral-400 cursor-not-allowed"
+              }`}
             >
               Ver detalles
             </button>
-
-            {r.status === "active" && !confirmCancel && (
-              <button
-                onClick={() => setConfirmCancel(true)}
-                className="inline-flex items-center gap-2 border border-neutral-400 text-neutral-900 hover:bg-white/60 px-3.5 py-2 rounded-xl text-sm"
-              >
-                <X className="size-4" /> Cancelar
-              </button>
-            )}
-
-            {confirmCancel && (
-              <div className="w-full bg-rose-50 border border-rose-200 text-rose-800 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2">
-                <span className="text-sm">
-                  ¿Seguro que querés cancelar esta reserva?
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setConfirmCancel(false);
-                      onCancel?.(r);
-                    }}
-                    className="px-3 py-2 rounded-lg text-sm bg-rose-600 text-white hover:bg-rose-700"
-                  >
-                    Sí, cancelar
-                  </button>
-                  <button
-                    onClick={() => setConfirmCancel(false)}
-                    className="px-3 py-2 rounded-lg text-sm border border-rose-300 text-rose-700 hover:bg-rose-100"
-                  >
-                    No, volver
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {r.status === "completed" && r.rating && (
-              <div className="flex items-center gap-1 text-amber-500">
-                {[...Array(r.rating)].map((_, i) => (
-                  <Star key={i} className="size-4 fill-amber-400" />
-                ))}
-                <span className="text-sm text-neutral-700 ml-1">
-                  Tu calificación
-                </span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -272,19 +192,19 @@ export default function GestionarReservas() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
+    let aborted = false;
     (async () => {
       try {
-        // 1) usuario actual
+        // 1) Usuario actual
         const r1 = await fetch(`${API_URL}/auth/current`, {
           credentials: "include",
           headers: { "Cache-Control": "no-store" },
         });
         if (!r1.ok) throw new Error("No autorizado");
-        const current = await r1.json(); // { id_usuario } | { data: { id_usuario } }
+        const current = await r1.json();
         const userId = Number(current?.data?.id_usuario ?? current?.id_usuario);
 
-        // 2) mis reservas
+        // 2) Mis reservas
         const r2 = await fetch(
           `${API_URL}/reservations/myReservations/${userId}`,
           {
@@ -292,38 +212,74 @@ export default function GestionarReservas() {
             headers: { "Cache-Control": "no-store" },
           }
         );
+        if (!r2.ok) throw new Error("No se pudieron obtener las reservas");
         const payload = await r2.json();
 
-        // 3) adaptar {activas, historial} -> array de tarjetas
+        // 3) Normalizar reservas
         const toCard = (x) => ({
           id: x.id_reserva,
           check_in: x.fecha_inicio,
           check_out: x.fecha_fin,
-          guests: 1, // si luego guardás huéspedes, cámbialo
+          guests: x.cantidad_huespedes ?? 1,
           status: mapStatus(x.etiqueta),
           property: {
             id: x.id_propiedad,
-            title: x.nombre_propiedad ?? "Propiedad",
-            price_per_night: Number(x.precio_por_noche ?? 0),
+            title: x.nombre_propiedad,
+            location: x.ubicacion_propiedad,
+            price_per_night:
+              typeof x.precio_por_noche === "number"
+                ? x.precio_por_noche
+                : undefined,
+            photo: undefined, // se completa desde /photos/cover/:id
+            cover: undefined,
           },
-          rating: x.rating ?? null, // tu payload no lo manda; queda null
+          rating: x.rating ?? null,
         });
 
-        const list = [
-          ...(payload.activas || []).map(toCard),
-          ...(payload.historial || []).map(toCard),
+        const baseList = [
+          ...(payload?.activas ?? []).map(toCard),
+          ...(payload?.historial ?? []).map(toCard),
         ];
 
-        if (!cancelled) setReservas(list);
-      } catch (err) {
-        console.error("Error cargando reservas:", err);
-        if (!cancelled) setReservas([]);
+        // 4) Completar cada propiedad: datos + cover
+        const ids = [
+          ...new Set(baseList.map((r) => r.property?.id).filter(Boolean)),
+        ];
+        const propMap = await fetchManyProperties(ids);
+
+        const merged = baseList.map((r) => {
+          const p = propMap.get(r.property.id) || {};
+          return {
+            ...r,
+            property: {
+              ...r.property,
+              id: r.property.id,
+              title: p.title ?? p.nombre ?? r.property.title,
+              location: p.location ?? p.ubicacion ?? r.property.location,
+              price_per_night:
+                typeof r.property.price_per_night === "number"
+                  ? r.property.price_per_night
+                  : typeof p.price_per_night === "number"
+                  ? p.price_per_night
+                  : typeof p.precio_por_noche === "number"
+                  ? p.precio_por_noche
+                  : undefined,
+              photo: p.photo ?? p.cover ?? undefined, // viene del endpoint /photos/cover
+              cover: p.cover ?? undefined,
+            },
+          };
+        });
+
+        if (!aborted) setReservas(merged);
+      } catch (e) {
+        console.error("Error cargando reservas:", e);
+        if (!aborted) setReservas([]);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!aborted) setLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
+      aborted = true;
     };
   }, []);
 
@@ -342,32 +298,10 @@ export default function GestionarReservas() {
     [all, activa]
   );
 
-  const onCancel = async (r) => {
-    // tu API para cancelar puede ser distinta; la dejo comentada por si aún no existe:
-    // await fetch(`${API_URL}/reservations/${r.id}/cancel`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: "cancelled" }) }).catch(()=>{});
-    setReservas((prev) =>
-      prev.map((x) => (x.id === r.id ? { ...x, status: "cancelled" } : x))
-    );
-  };
-
-  const onSendRating = async (r, rating, comment) => {
-    if (!rating) return;
-    // endpoint placeholder:
-    // await fetch(`${API_URL}/reservations/${r.id}/rate`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ rating, comment }) }).catch(()=>{});
-    setReservas((prev) =>
-      prev.map((x) =>
-        x.id === r.id ? { ...x, rating, status: "completed" } : x
-      )
-    );
-  };
-
-  const freeCancelUntil = activa
-    ? addHours(new Date(activa.check_in), -48)
-    : null;
-
   return (
     <div className="relative min-h-screen bg-white">
-      <Navbar /> {/* ✅ barra de navegación global */}
+      <Navbar />
+
       <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 pt-[90px]">
         <h1 className="text-3xl font-extrabold tracking-tight mb-8">
           Mis Reservas
@@ -388,12 +322,7 @@ export default function GestionarReservas() {
                 {loading ? (
                   <SkeletonCards />
                 ) : activa ? (
-                  <ReservationCard
-                    r={activa}
-                    onCancel={onCancel}
-                    onSendRating={onSendRating}
-                    highlight
-                  />
+                  <ReservationCard r={activa} highlight />
                 ) : (
                   <p className="text-neutral-700 text-sm">
                     No tenés reservas activas en este momento.
@@ -416,13 +345,7 @@ export default function GestionarReservas() {
                   <SkeletonCards />
                 ) : historial.length ? (
                   historial.map((r) => (
-                    <ReservationCard
-                      key={r.id}
-                      r={r}
-                      onCancel={onCancel}
-                      onSendRating={onSendRating}
-                      compact
-                    />
+                    <ReservationCard key={r.id} r={r} compact />
                   ))
                 ) : (
                   <p className="text-neutral-700 text-sm">
@@ -435,6 +358,17 @@ export default function GestionarReservas() {
 
           {/* === SIDEBAR === */}
           <aside className="lg:col-span-3 space-y-6 lg:pt-10">
+            {/* 👇 Consejos arriba */}
+            <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
+              <h3 className="font-semibold">Consejos</h3>
+              <ul className="mt-3 list-disc pl-5 space-y-1 text-sm text-neutral-700">
+                <li>Revisá horarios de check-in y check-out.</li>
+                <li>Calificá tus estadías para ayudar a otros.</li>
+                <li>Para cambios de fechas, contactá al anfitrión.</li>
+              </ul>
+            </div>
+
+            {/* Resumen rápido (sin bloque de “Cancelación gratuita…”) */}
             <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
               <h3 className="font-semibold">Resumen rápido</h3>
               <ul className="mt-3 space-y-2 text-sm text-neutral-700">
@@ -447,21 +381,6 @@ export default function GestionarReservas() {
                   <strong>{historial.length}</strong>
                 </li>
               </ul>
-              {freeCancelUntil && (
-                <div className="mt-4 rounded-xl bg-[#FFF8E6] border border-[#FFE7A6] p-3 text-neutral-900 text-sm">
-                  Cancelación gratuita hasta{" "}
-                  <strong>{fmtDateTime(freeCancelUntil)}</strong>.
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
-              <h3 className="font-semibold">Consejos</h3>
-              <ul className="mt-3 list-disc pl-5 space-y-1 text-sm text-neutral-700">
-                <li>Revisá horarios de check-in y check-out.</li>
-                <li>Calificá tus estadías para ayudar a otros.</li>
-                <li>Para cambios de fechas, contactá al anfitrión.</li>
-              </ul>
             </div>
           </aside>
         </div>
@@ -471,6 +390,41 @@ export default function GestionarReservas() {
 }
 
 /* ========================= Helpers ========================= */
+// Trae propiedad completa + portada desde /photos/cover/:propertyId
+async function fetchManyProperties(ids = []) {
+  const map = new Map();
+  await Promise.all(
+    ids.map(async (id) => {
+      // Propiedad
+      const r = await fetch(`${API_URL}/properties/${id}`, {
+        credentials: "include",
+        headers: { "Cache-Control": "no-store" },
+      });
+
+      const prop = r.ok ? (await r.json().catch(() => ({})))?.data ?? {} : {};
+
+      // Cover
+      const rc = await fetch(`${API_URL}/photos/cover/${id}`, {
+        credentials: "include",
+        headers: { "Cache-Control": "no-store" },
+      });
+
+      if (rc.ok) {
+        const jc = await rc.json().catch(() => ({}));
+        const coverUrl = jc?.data?.url_foto ?? jc?.url_foto;
+        if (coverUrl) {
+          prop.cover = coverUrl;
+          prop.photo = coverUrl; // lo usa la card
+          prop.image_url = coverUrl; // por si lo necesitás en otras vistas
+        }
+      }
+
+      map.set(id, prop);
+    })
+  );
+  return map;
+}
+
 function fmtDate(s) {
   try {
     return new Date(s).toLocaleDateString("es-AR", {
@@ -482,27 +436,9 @@ function fmtDate(s) {
     return s;
   }
 }
-function fmtDateTime(d) {
-  try {
-    return new Date(d).toLocaleString("es-AR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return String(d);
-  }
-}
-function addHours(d, h) {
-  const nd = new Date(d);
-  nd.setHours(nd.getHours() + h);
-  return nd;
-}
 function inferStatus(r, now = new Date()) {
-  const ci = new Date(r.check_in),
-    co = new Date(r.check_out);
+  const ci = new Date(r.check_in);
+  const co = new Date(r.check_out);
   if (r.status) return r.status;
   if (r.cancelled) return "cancelled";
   if (now >= ci && now < co) return "active";

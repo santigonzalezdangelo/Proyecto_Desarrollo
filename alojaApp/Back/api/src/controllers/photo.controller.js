@@ -1,6 +1,6 @@
-import { uploadImage, deleteImage } from '../config/cloudinary.config.js';
-import PhotoDAO from '../dao/photo.dao.js';
-import PropertyDAO from '../dao/property.dao.js';
+import { uploadImage, deleteImage } from "../config/cloudinary.config.js";
+import PhotoDAO from "../dao/photo.dao.js";
+import PropertyDAO from "../dao/property.dao.js";
 
 class PhotoController {
   uploadPropertyPhotos = async (req, res) => {
@@ -8,13 +8,18 @@ class PhotoController {
       const { id_propiedad } = req.params;
       const { id_usuario } = req.user;
 
-      const property = await PropertyDAO.findByIdAndAnfitrion(id_propiedad, id_usuario);
+      const property = await PropertyDAO.findByIdAndAnfitrion(
+        id_propiedad,
+        id_usuario
+      );
       if (!property) {
-        return res.status(403).json({ error: 'No tienes permiso para agregar fotos a esta propiedad.' });
+        return res.status(403).json({
+          error: "No tienes permiso para agregar fotos a esta propiedad.",
+        });
       }
 
       if (!req.files?.length) {
-        return res.status(400).json({ error: 'No se subieron archivos.' });
+        return res.status(400).json({ error: "No se subieron archivos." });
       }
 
       const photosToCreate = [];
@@ -31,36 +36,45 @@ class PhotoController {
       res.status(201).json(newPhotos);
     } catch (error) {
       console.error("Error al subir fotos:", error);
-      res.status(500).json({ error: 'Error interno del servidor al subir fotos.' });
+      res
+        .status(500)
+        .json({ error: "Error interno del servidor al subir fotos." });
     }
   };
 
   deletePhoto = async (req, res) => {
     try {
-        const { id_foto } = req.params;
-        const { id_usuario } = req.user;
+      const { id_foto } = req.params;
+      const { id_usuario } = req.user;
 
-        const photo = await PhotoDAO.findById(id_foto);
-        if (!photo) {
-            return res.status(404).json({ error: 'Foto no encontrada.' });
-        }
+      const photo = await PhotoDAO.findById(id_foto);
+      if (!photo) {
+        return res.status(404).json({ error: "Foto no encontrada." });
+      }
 
-        const property = await PropertyDAO.findByIdAndAnfitrion(photo.id_propiedad, id_usuario);
-        if (!property) {
-            return res.status(403).json({ error: 'No tienes permiso para eliminar esta foto.' });
-        }
+      const property = await PropertyDAO.findByIdAndAnfitrion(
+        photo.id_propiedad,
+        id_usuario
+      );
+      if (!property) {
+        return res
+          .status(403)
+          .json({ error: "No tienes permiso para eliminar esta foto." });
+      }
 
-        await deleteImage(photo.nombre_foto); 
+      await deleteImage(photo.nombre_foto);
 
-        await PhotoDAO.deletePropertyPhotoById(id_foto);
-        
-        res.status(204).send();
+      await PhotoDAO.deletePropertyPhotoById(id_foto);
+
+      res.status(204).send();
     } catch (error) {
-        console.error("Error al eliminar foto:", error);
-        res.status(500).json({ error: 'Error interno del servidor al eliminar la foto.' });
+      console.error("Error al eliminar foto:", error);
+      res
+        .status(500)
+        .json({ error: "Error interno del servidor al eliminar la foto." });
     }
   };
-  
+
   // --- NUEVO: MÉTODO PARA MARCAR COMO PRINCIPAL ---
   setPhotoAsPrincipal = async (req, res) => {
     try {
@@ -70,52 +84,98 @@ class PhotoController {
       // 1️⃣ Buscar la foto
       const photo = await PhotoDAO.findById(id_foto);
       if (!photo) {
-        return res.status(404).json({ error: 'Foto no encontrada.' });
+        return res.status(404).json({ error: "Foto no encontrada." });
       }
 
       // 2️⃣ Verificar que el usuario sea dueño de la propiedad
-      const property = await PropertyDAO.findByIdAndAnfitrion(photo.id_propiedad, id_usuario);
+      const property = await PropertyDAO.findByIdAndAnfitrion(
+        photo.id_propiedad,
+        id_usuario
+      );
       if (!property) {
-        return res.status(403).json({ error: 'No tienes permiso para modificar esta propiedad.' });
+        return res
+          .status(403)
+          .json({ error: "No tienes permiso para modificar esta propiedad." });
       }
 
       // 3️⃣ Si la foto ya era principal, desmarcarla
       if (photo.principal) {
         await photo.update({ principal: false });
-        return res.status(200).json({ message: 'Foto desmarcada como principal.' });
+        return res
+          .status(200)
+          .json({ message: "Foto desmarcada como principal." });
       }
 
       // 4️⃣ Si no era principal, marcar esta y desmarcar las demás
       await PhotoDAO.setPrincipal(id_foto, photo.id_propiedad);
 
-      res.status(200).json({ message: 'Foto marcada como principal.' });
+      res.status(200).json({ message: "Foto marcada como principal." });
     } catch (error) {
-      console.error('Error al establecer foto principal:', error);
-      res.status(500).json({ error: 'Error interno del servidor al establecer la foto principal.' });
+      console.error("Error al establecer foto principal:", error);
+      res.status(500).json({
+        error: "Error interno del servidor al establecer la foto principal.",
+      });
     }
-
   };
 
-  getPrincipalPhotoId = async (req, res) => { // Nuevo método para obtener la foto principal por id propiedad
+  getPrincipalPhotoId = async (req, res) => {
+    // Nuevo método para obtener la foto principal por id propiedad
     try {
       const { id_propiedad } = req.params;
       const { id_usuario } = req.user;
 
       // Verificar que el usuario sea dueño de la propiedad
-      const property = await PropertyDAO.findByIdAndAnfitrion(id_propiedad, id_usuario);
+      const property = await PropertyDAO.findByIdAndAnfitrion(
+        id_propiedad,
+        id_usuario
+      );
       if (!property) {
-        return res.status(403).json({ error: 'No tienes permiso para ver esta propiedad.' });
+        return res
+          .status(403)
+          .json({ error: "No tienes permiso para ver esta propiedad." });
       }
 
       const photo = await PhotoDAO.getPrincipalByPropertyId(id_propiedad);
       if (!photo) {
-        return res.status(404).json({ error: 'No hay foto principal.' });
+        return res.status(404).json({ error: "No hay foto principal." });
       }
 
       res.status(200).json({ id_foto: photo.id_foto });
     } catch (error) {
-      console.error('Error fetching principal photo:', error);
-      res.status(500).json({ error: 'Error interno del servidor.' });
+      console.error("Error fetching principal photo:", error);
+      res.status(500).json({ error: "Error interno del servidor." });
+    }
+  };
+
+  //nuevos mati
+
+  byProperty = async (req, res) => {
+    try {
+      const propertyId = Number(req.params.propertyId);
+      if (!Number.isInteger(propertyId) || propertyId <= 0) {
+        return res.status(400).json({ error: "propertyId inválido" });
+      }
+      const fotos = await PhotoDAO.getAllByProperty(propertyId);
+      return res.json({ data: fotos });
+    } catch (err) {
+      console.error("PhotoController.byProperty error:", err);
+      return res.status(500).json({ error: "Error interno" });
+    }
+  };
+
+  cover = async (req, res) => {
+    try {
+      const propertyId = Number(req.params.propertyId);
+      if (!Number.isInteger(propertyId) || propertyId <= 0) {
+        return res.status(400).json({ error: "propertyId inválido" });
+      }
+      const cover = await PhotoDAO.getCoverByProperty(propertyId);
+      if (!cover)
+        return res.status(404).json({ error: "Sin fotos para la propiedad" });
+      return res.json({ data: cover });
+    } catch (err) {
+      console.error("PhotoController.cover error:", err);
+      return res.status(500).json({ error: "Error interno" });
     }
   };
 }

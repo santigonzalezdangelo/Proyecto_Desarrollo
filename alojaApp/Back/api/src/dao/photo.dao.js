@@ -1,5 +1,6 @@
 import PostgresDAO from "./postgres.dao.js";
 import { photoModel } from "../models/associations.js";
+import { Op, literal } from "sequelize";
 
 class PhotoDAO extends PostgresDAO {
   constructor() {
@@ -20,16 +21,16 @@ class PhotoDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
-    // --- MÉTODO DELETEBYID (FALTANTE) ---
+  // --- MÉTODO DELETEBYID (FALTANTE) ---
   deletePropertyPhotoById = async (id_foto) => {
     try {
-        return await this.model.destroy({ where: { id_foto: id_foto } });
+      return await this.model.destroy({ where: { id_foto: id_foto } });
     } catch (error) {
-        console.error("Error deleting photo by id:", error);
-        throw new Error(error);
+      console.error("Error deleting photo by id:", error);
+      throw new Error(error);
     }
   };
-    // --- MÉTODO FINDBYID FALTANTE ---
+  // --- MÉTODO FINDBYID FALTANTE ---
   findById = async (id_foto) => {
     try {
       // findByPk busca por la clave primaria definida en el modelo
@@ -49,7 +50,7 @@ class PhotoDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
-  
+
   // 🔄 Marcar una foto como principal
   setPrincipal = async (id_foto, id_propiedad) => {
     try {
@@ -69,20 +70,42 @@ class PhotoDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
-  
+
   // Obtener la foto principal de una propiedad
   getPrincipalByPropertyId = async (id_propiedad) => {
     try {
       return await this.model.findOne({
         where: { id_propiedad, principal: true },
-        attributes: ['id_foto'], // solo traemos el id
+        attributes: ["id_foto"], // solo traemos el id
       });
     } catch (error) {
       console.error("Error fetching principal photo:", error);
       throw new Error(error);
     }
   };
+
+  //nuevo mati
+
+  ORDER_COVER = [
+    [literal('COALESCE("principal", false)'), "DESC"],
+    ["id_foto", "ASC"],
+  ];
+
+  getAllByProperty = async (propertyId) => {
+    return await this.model.findAll({
+      where: { id_propiedad: Number(propertyId) },
+      order: this.ORDER_COVER,
+    });
+  };
+
+  getCoverByProperty = async (propertyId) => {
+    const rows = await this.model.findAll({
+      where: { id_propiedad: Number(propertyId) },
+      order: this.ORDER_COVER,
+      limit: 1,
+    });
+    return rows[0] ?? null;
+  };
 }
 
 export default new PhotoDAO();
-

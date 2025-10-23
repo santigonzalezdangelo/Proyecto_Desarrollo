@@ -1,7 +1,14 @@
-import { propertyModel as Propiedad, localidadModel as Localidad, ciudadModel as Ciudad, paisModel as Pais, photoModel as Foto, reservationModel as Reserva, ratingPropertyModel as CalificacionPropiedad } from "../models/associations.js";
+import {
+  propertyModel as Propiedad,
+  localidadModel as Localidad,
+  ciudadModel as Ciudad,
+  paisModel as Pais,
+  photoModel as Foto,
+  reservationModel as Reserva,
+  ratingPropertyModel as CalificacionPropiedad,
+} from "../models/associations.js";
 
 import { Op, fn, col, literal } from "sequelize";
-
 
 /**
  * 🏡 Propiedades destacadas (para portada)
@@ -34,22 +41,23 @@ export async function getFeaturedDAO() {
   return rows;
 }
 
-
 export async function getFiltersDAO() {
-  const [tipos] = await sequelize.query("SELECT id_tipo_propiedad, nombre FROM tipos_propiedad ORDER BY nombre;");
-  const [caracteristicas] = await sequelize.query("SELECT id_caracteristica, nombre_caracteristica FROM caracteristicas ORDER BY nombre_caracteristica;");
-  const [precios] = await sequelize.query("SELECT MIN(precio_por_noche) AS min, MAX(precio_por_noche) AS max FROM propiedades;");
-  
+  const [tipos] = await sequelize.query(
+    "SELECT id_tipo_propiedad, nombre FROM tipos_propiedad ORDER BY nombre;"
+  );
+  const [caracteristicas] = await sequelize.query(
+    "SELECT id_caracteristica, nombre_caracteristica FROM caracteristicas ORDER BY nombre_caracteristica;"
+  );
+  const [precios] = await sequelize.query(
+    "SELECT MIN(precio_por_noche) AS min, MAX(precio_por_noche) AS max FROM propiedades;"
+  );
+
   return {
     tipos_propiedad: tipos,
     caracteristicas,
     precios: precios[0],
   };
 }
-
-
-
-
 
 /**
  * 🔍 Propiedades disponibles (versión estable)
@@ -72,11 +80,19 @@ export async function getAvailableDAO(params) {
 
   // 🧱 Filtros básicos
   const where = {
-    ...(huespedes ? { cantidad_huespedes: { [Op.gte]: Number(huespedes) } } : {}),
+    ...(huespedes
+      ? { cantidad_huespedes: { [Op.gte]: Number(huespedes) } }
+      : {}),
     ...(id_localidad ? { id_localidad: Number(id_localidad) } : {}),
-    ...(precio_min ? { precio_por_noche: { [Op.gte]: Number(precio_min) } } : {}),
-    ...(precio_max ? { precio_por_noche: { [Op.lte]: Number(precio_max) } } : {}),
-    ...(id_tipo_propiedad ? { id_tipo_propiedad: Number(id_tipo_propiedad) } : {}),
+    ...(precio_min
+      ? { precio_por_noche: { [Op.gte]: Number(precio_min) } }
+      : {}),
+    ...(precio_max
+      ? { precio_por_noche: { [Op.lte]: Number(precio_max) } }
+      : {}),
+    ...(id_tipo_propiedad
+      ? { id_tipo_propiedad: Number(id_tipo_propiedad) }
+      : {}),
   };
 
   // ⚙️ Orden
@@ -96,7 +112,10 @@ export async function getAvailableDAO(params) {
       [col("localidad.nombre"), "localidad"],
       [col("localidad.ciudad.nombre_ciudad"), "ciudad"],
       [col("localidad.ciudad.pais.nombre_pais"), "pais"],
-      [fn("COALESCE", fn("AVG", col("reservas->calificacion.puntuacion")), 0), "rating"],
+      [
+        fn("COALESCE", fn("AVG", col("reservas->calificacion.puntuacion")), 0),
+        "rating",
+      ],
       [fn("MIN", col("fotos.url_foto")), "imagen_url"],
     ],
     where,
@@ -140,15 +159,15 @@ export async function getAvailableDAO(params) {
       "localidad.ciudad.pais.nombre_pais",
     ],
     having: rating_min
-      ? literal(`COALESCE(AVG("reservas->calificacion"."puntuacion"),0) >= ${rating_min}`)
+      ? literal(
+          `COALESCE(AVG("reservas->calificacion"."puntuacion"),0) >= ${rating_min}`
+        )
       : undefined,
     order,
     limit: 100,
     subQuery: false,
     raw: true,
   });
-
-
 
   console.log(`[getAvailableDAO ORM] returned ${propiedades.length} rows`);
   return propiedades;

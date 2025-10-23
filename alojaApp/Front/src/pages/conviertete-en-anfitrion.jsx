@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/NavBar";
+import Navbar from "../components/Navbar.jsx";
 
 const NAV_H = 72;
 const PRIMARY = "#F8C24D";
