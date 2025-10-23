@@ -1,9 +1,15 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef, // nuevo
+  forwardRef, // nuevo
+  useImperativeHandle, // nuevo
+} from "react";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
 
 // ====== CONFIGURACIÓN DE LA API (con Fetch) ======
-// CORRECCIÓN: Se utiliza un fallback simple para evitar errores/warnings de 'import.meta.env' en el entorno de ejecución.
 const API_BASE = import.meta.env?.VITE_API_URL;
 
 // ====== TEMA / TOKENS DE COLOR ======
@@ -19,6 +25,215 @@ const RED_ACTION = "#DC2626";
 const RED_ERROR_BG = "#FEF2F2";
 const RED_ERROR_TEXT = "#991B1B";
 const BORDER_COLOR = "#CBD5E1";
+
+/* ======================================================================
+   NUEVO COMPONENTE: CaracteristicasTab
+   - Trae del backend TODAS las características + los valores de la propiedad
+   - GET  /caracteristicas/property/:id_propiedad
+   - PUT  /caracteristicas/property/:id_propiedad
+   - Expuesto con forwardRef para que el modal pueda disparar save()
+   ====================================================================== */
+const CaracteristicasTab = forwardRef(function CaracteristicasTab(
+  { propertyId }, // nuevo
+  ref
+) {
+  const [loading, setLoading] = useState(false); // nuevo
+  const [error, setError] = useState(""); // nuevo
+  const [saving, setSaving] = useState(false); // nuevo
+  const [items, setItems] = useState([]); // nuevo
+
+  // nuevo: agrupar por categoría
+  const grouped = useMemo(() => {
+    const m = new Map();
+    for (const it of items) {
+      const cat = it.nombre_categoria || "Otros";
+      if (!m.has(cat)) m.set(cat, []);
+      m.get(cat).push(it);
+    }
+    return Array.from(m.entries());
+  }, [items]);
+
+  // nuevo: fetch catálogo + valores
+  async function fetchData() {
+    if (!propertyId) return;
+    try {
+      setError("");
+      setLoading(true);
+      const r = await fetch(
+        `${API_BASE}/caracteristicas/property/${propertyId}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        }
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setItems([]);
+      setError("No se pudieron cargar las características.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // nuevo: guardar
+  async function handleSave() {
+    if (!propertyId) return;
+    try {
+      setSaving(true);
+      setError("");
+
+      const payload = {
+        items: items.map((it) => ({
+          id_caracteristica: it.id_caracteristica,
+          tipo_valor: it.tipo_valor,
+          ...(String(it.tipo_valor).toLowerCase() === "booleana"
+            ? { checked: Boolean(it.checked) }
+            : { cantidad: Number(it.cantidad) || 0 }),
+        })),
+      };
+
+      const r = await fetch(
+        `${API_BASE}/caracteristicas/property/${propertyId}`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return true;
+    } catch (e) {
+      console.error(e);
+      setError("No se pudieron guardar las características.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // nuevo: exponer save() y reload()
+  useImperativeHandle(ref, () => ({
+    save: handleSave,
+    reload: fetchData,
+  }));
+
+  // nuevo: cargar al montarse
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId]);
+
+  // nuevo: UI
+  if (loading) {
+    return (
+      <div className="rounded border p-4 text-slate-700 bg-amber-50">
+        Cargando características o no hay ninguna definida en el sistema.
+      </div>
+    );
+  }
+  if (!!error) {
+    return (
+      <div className="rounded border p-4 text-red-700 bg-red-50">{error}</div>
+    );
+  }
+  if (items.length === 0) {
+    return (
+      <div className="rounded border p-4 text-slate-700 bg-amber-50">
+        No hay características definidas aún.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {grouped.map(([categoria, lista]) => (
+        <div key={categoria} className="space-y-3">
+          <div className="text-sm font-semibold text-slate-600">
+            {categoria}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {lista.map((it) => {
+              const isBool =
+                String(it.tipo_valor || "").toLowerCase() === "booleana";
+              return (
+                <label
+                  key={it.id_caracteristica}
+                  className="flex items-center justify-between gap-3 rounded border p-3"
+                  style={{
+                    borderColor: BORDER_COLOR,
+                    backgroundColor: CARD_BG,
+                  }}
+                >
+                  <span className="text-slate-800">
+                    {it.nombre_caracteristica}
+                  </span>
+
+                  {isBool ? (
+                    <input
+                      type="checkbox"
+                      checked={!!it.checked}
+                      onChange={(e) => {
+                        const ch = e.target.checked;
+                        setItems((arr) =>
+                          arr.map((x) =>
+                            x.id_caracteristica === it.id_caracteristica
+                              ? { ...x, checked: ch }
+                              : x
+                          )
+                        );
+                      }}
+                    />
+                  ) : (
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="w-24 rounded border px-2 py-1"
+                      style={{ borderColor: PRIMARY_COLOR }}
+                      value={it.cantidad ?? ""}
+                      onChange={(e) => {
+                        const v =
+                          e.target.value === ""
+                            ? ""
+                            : Math.max(0, Number(e.target.value));
+                        setItems((arr) =>
+                          arr.map((x) =>
+                            x.id_caracteristica === it.id_caracteristica
+                              ? { ...x, cantidad: v }
+                              : x
+                          )
+                        );
+                      }}
+                    />
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {/* Botón local opcional (no hace falta si usás el botón del modal) */}
+      <div className="pt-2">
+        <button
+          type="button"
+          className="rounded px-4 py-2 text-white disabled:opacity-60"
+          style={{ backgroundColor: GREEN_ACTION }}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saving ? "Guardando..." : "Guardar Características"}
+        </button>
+      </div>
+    </div>
+  );
+});
+
+/* ===================== FIN COMPONENTE CaracteristicasTab ===================== */
 
 // ====== COMPONENTES DE UI (AdminSubNav, etc.) ======
 
@@ -77,7 +292,7 @@ function AdminSubNav({
   );
 }
 
-function AdminPropertyCard({ propiedad, onEliminar, onCambiarEstado, onEdit }) {
+function AdminPropertyCard({ propiedad, onEliminar, onEdit }) {
   const {
     id_propiedad,
     descripcion,
@@ -215,7 +430,7 @@ export default function AdministrarPropiedades() {
           : p.fotos?.[0]?.url_foto
           ? `${p.fotos[0].url_foto}?f_auto,q_auto,dpr_auto`
           : undefined,
-        estado_publicacion: p.estado_publicacion, // El estado viene calculado desde el backend
+        estado_publicacion: p.estado_publicacion,
       }));
       setPropiedades(mappedData);
     } catch (err) {
@@ -253,47 +468,38 @@ export default function AdministrarPropiedades() {
     setPropertyToEdit(null);
   };
 
-  // FUNCIÓN CLAVE: Busca la propiedad completa incluyendo características antes de editar
+  // traer propiedad completa
   const fetchPropertyDetails = async (propiedad) => {
     try {
-      // NOTA: Asume que tienes un endpoint para obtener una propiedad CON TODAS las asociaciones
-      // Por ejemplo: GET /properties/full/:id
       const response = await fetch(
         `${API_BASE}/properties/getPropiedadById/${propiedad.id_propiedad}`,
-        {
-          credentials: "include",
-        }
+        { credentials: "include" }
       );
-
       if (!response.ok) {
         throw new Error(
           `Error ${response.status}: No se pudo cargar el detalle completo.`
         );
       }
-
       const fullProperty = await response.json();
-
-      // Asume que la respuesta incluye: { ..., fotos: [...], caracteristicas_propiedad: [...] }
-      setPropertyToEdit(fullProperty);
-      setIsModalOpen(true);
+      return fullProperty;
     } catch (err) {
       console.error("Error al cargar detalles de la propiedad:", err);
       showNotification(`Error: ${err.message}`, "error");
+      return null;
     }
   };
 
-  const handleOpenEditModal = (propiedad) => {
-    // Usar directamente la propiedad sin llamada adicional
-    setPropertyToEdit(propiedad);
+  const handleOpenEditModal = async (propiedad) => {
+    const full = await fetchPropertyDetails(propiedad);
+    setPropertyToEdit(full || propiedad);
     setIsModalOpen(true);
   };
 
-  // Nueva función para actualizar el estado del array de fotos desde el modal
+  // actualizar tarjetas al cambiar fotos
   const handleUpdatePropertyPhotos = (propertyId, newPhotosArray) => {
     setPropiedades((prev) =>
       prev.map((p) => {
         if (p.id_propiedad === propertyId) {
-          // Buscar la nueva principal para actualizar la tarjeta
           const newPrincipalUrl =
             newPhotosArray.find((f) => f.principal)?.url_foto ||
             newPhotosArray?.[0]?.url_foto;
@@ -320,7 +526,6 @@ export default function AdministrarPropiedades() {
     const propertyMethod = isEditing ? "PUT" : "POST";
 
     try {
-      // Convertir campos numéricos vacíos a null
       const payload = { ...savedPropertyData };
       if (payload.precio_por_noche === "") payload.precio_por_noche = null;
       if (payload.cantidad_huespedes === "") payload.cantidad_huespedes = null;
@@ -347,20 +552,15 @@ export default function AdministrarPropiedades() {
       const savedProperty = isEditing
         ? savedDataResponse
         : savedDataResponse.data;
-      const propertyId = savedProperty.id_propiedad; // Subir fotos si hay
+      const propertyId = savedProperty.id_propiedad;
 
       if (photoFiles && photoFiles.length > 0) {
         if (photoFiles.length > 20) {
           showNotification("No se pueden subir más de 20 fotos.", "error");
           return;
         }
-
         const formData = new FormData();
-
-        for (const file of photoFiles) {
-          // Convertimos cada archivo a URL temporal de Cloudinary optimizada
-          formData.append("photos", file);
-        }
+        for (const file of photoFiles) formData.append("photos", file);
 
         const photoUploadUrl = `${API_BASE}/photos/photo/${propertyId}`;
 
@@ -377,7 +577,7 @@ export default function AdministrarPropiedades() {
             "error"
           );
         } else {
-          setPhotoFiles([]); // Limpiar archivos nuevos después de subir
+          setPhotoFiles([]);
         }
       }
 
@@ -459,8 +659,6 @@ export default function AdministrarPropiedades() {
     });
   };
   const handleCambiarEstado = (id, nuevoEstado) => {
-    // Los estados ya no se pueden cambiar desde la interfaz
-    // Esta función se mantiene por compatibilidad pero no hace nada
     console.log("Cambio de estado deshabilitado:", id, nuevoEstado);
   };
 
@@ -572,27 +770,27 @@ function PropertyEditModal({
   const [photoFiles, setPhotoFiles] = useState([]);
   const [existingModalPhotos, setExistingModalPhotos] = useState([]);
 
-  // NUEVO: Estado para manejar la pestaña activa ('propiedad' o 'caracteristicas')
+  // Pestaña activa
   const [activeTab, setActiveTab] = useState("propiedad");
 
-  // NUEVO: Estados para manejar las características
+  // Estados previos (mantengo por compatibilidad con tu lógica actual)
   const [allCaracteristicas, setAllCaracteristicas] = useState([]);
-  const [caracteristicasData, setCaracteristicasData] = useState([]); // {id_caracteristica, cantidad}
+  const [caracteristicasData, setCaracteristicasData] = useState([]);
+
+  // nuevo: ref para el tab de características
+  const caracRef = useRef(null); // nuevo
 
   useEffect(() => {
     const fetchDropdownData = async () => {
       if (!isOpen) return;
       try {
-        // Ejecutar todas las llamadas de datos en paralelo
         const [tiposRes, localidadesRes, caracteristicasRes] =
           await Promise.all([
             fetch(`${API_BASE}/tipos-propiedad/getAllTiposPropiedad`),
             fetch(`${API_BASE}/localidades/getAllLocalidades`),
-            // NO ENVIAMOS credenciales aquí para que pueda cargar si no hay sesión
             fetch(`${API_BASE}/caracteristicas/getAllCaracteristicas`),
           ]);
 
-        // --- 1. PROCESAR DATOS MANDATORIOS (Tipos y Localidades) ---
         let mandatoryError = null;
 
         if (!tiposRes.ok) {
@@ -616,7 +814,6 @@ function PropertyEditModal({
         }
 
         if (mandatoryError) {
-          // Si hay un error en datos mandatorios, lanzamos una excepción para que el catch lo maneje
           throw new Error(`Error crítico al cargar datos: ${mandatoryError}`);
         }
 
@@ -625,12 +822,10 @@ function PropertyEditModal({
         setTipos(tiposData);
         setLocalidades(localidadesData);
 
-        // --- 2. PROCESAR DATOS OPCIONALES (Características) ---
         if (caracteristicasRes.ok) {
           const caracteristicasData = await caracteristicasRes.json();
           setAllCaracteristicas(caracteristicasData);
         } else {
-          // Falla silenciosamente para características, pero reseteamos el estado.
           console.warn(
             `[Advertencia] No se pudieron cargar las características (${caracteristicasRes.status}). El formulario estará vacío.`
           );
@@ -638,7 +833,6 @@ function PropertyEditModal({
         }
       } catch (error) {
         console.error("Error en fetchDropdownData:", error);
-        // Muestra la notificación de error al usuario
         showNotification(
           error.message || "Error al cargar datos necesarios.",
           "error"
@@ -646,13 +840,12 @@ function PropertyEditModal({
       }
     };
     fetchDropdownData();
-    // Resetear pestaña a Propiedad al abrir
     if (isOpen) setActiveTab("propiedad");
-  }, [isOpen]); // Dependencia única en isOpen
+  }, [isOpen, showNotification]);
 
   useEffect(() => {
     if (isOpen) {
-      setPhotoFiles([]); // Limpia archivos nuevos al abrir el modal
+      setPhotoFiles([]);
       if (property) {
         setExistingModalPhotos(property.fotos || []);
         setFormData({
@@ -669,28 +862,16 @@ function PropertyEditModal({
           estancia_minima: property.estancia_minima || 1,
         });
 
-        // Inicializar características para edición (si existen)
-        console.log("🔍 Propiedad recibida:", property);
-        console.log(
-          "🔍 Características de la propiedad:",
-          property.caracteristicas_propiedad
-        );
-
         const initialCaracteristicas = (
           property.caracteristicas_propiedad || []
         ).map((cp) => ({
           id_caracteristica: cp.id_caracteristica,
           cantidad: cp.cantidad || 0,
         }));
-
-        console.log(
-          "🔍 Características iniciales mapeadas:",
-          initialCaracteristicas
-        );
         setCaracteristicasData(initialCaracteristicas);
       } else {
         setExistingModalPhotos([]);
-        setCaracteristicasData([]); // Vacío para nueva propiedad
+        setCaracteristicasData([]);
         setFormData({
           descripcion: "",
           precio_por_noche: "",
@@ -716,47 +897,7 @@ function PropertyEditModal({
     setFormData((prev) => ({ ...prev, [name]: val }));
   };
 
-  // NUEVA FUNCIÓN: Manejar el guardado de características
-  //   const handleSaveCaracteristicas = async () => {
-  //     if (!property?.id_propiedad) {
-  //         return showNotification("Primero debes crear/guardar la propiedad antes de editar las características.", "error");
-  //     }
-
-  //     const characteristicsToSave = caracteristicasData
-  //         .filter(c => c.cantidad > 0)
-  //         .map(c => ({
-  //             id_caracteristica: c.id_caracteristica,
-  //             cantidad: Number(c.cantidad)
-  //         }));
-
-  //     try {
-  //         // Endpoint para guardar/actualizar la lista de características
-  //         const response = await fetch(`${API_BASE}/properties/caracteristicas/${property.id_propiedad}`, {
-  //             method: 'PUT',
-  //             headers: { 'Content-Type': 'application/json' },
-  //             body: JSON.stringify({ caracteristicas: characteristicsToSave }),
-  //             credentials: 'include',
-  //         });
-
-  //         if (!response.ok) {
-  //             const errorData = await response.json().catch(() => ({}));
-  //             throw new Error(errorData.message || `Error ${response.status}: No se pudieron guardar las características.`);
-  //         }
-
-  //         // CORRECCIÓN CLAVE: Refrescar la lista de propiedades y los detalles del modal
-  //         await onSave({}, [], () => {}); // Esto recarga la lista de propiedades principal
-  //
-  //         // 1. Refrescar la propiedad que está abierta en el modal para ver los cambios
-  //         await fetchPropertyDetails(property);
-
-  //         showNotification("Características guardadas con éxito", "success");
-  //         onClose();
-  //
-  //     } catch (err) {
-  //         console.error("Error al guardar características:", err);
-  //         showNotification(`Error al guardar características: ${err.message}`, "error");
-  //     }
-  //   }
+  // ===== Mantengo tu handleSaveCaracteristicas (legacy, no se usa con el nuevo tab) =====
   const handleSaveCaracteristicas = async () => {
     if (!property?.id_propiedad) {
       return showNotification(
@@ -772,14 +913,7 @@ function PropertyEditModal({
         cantidad: Number(c.cantidad),
       }));
 
-    console.log("🔍 Características a guardar:", characteristicsToSave);
-    console.log(
-      "🔍 Estado actual de caracteristicasData:",
-      caracteristicasData
-    );
-
     try {
-      // Endpoint para guardar/actualizar la lista de características
       const response = await fetch(
         `${API_BASE}/properties/caracteristicas/${property.id_propiedad}`,
         {
@@ -798,9 +932,7 @@ function PropertyEditModal({
         );
       }
 
-      // Refrescar la lista de propiedades principal
       await onSave({}, null, () => {});
-
       showNotification("Características guardadas con éxito", "success");
       onClose();
     } catch (err) {
@@ -813,7 +945,6 @@ function PropertyEditModal({
   };
 
   const handleSave = () => {
-    // Esta función se usa solo si activeTab === 'propiedad' (Crear o Guardar Datos Principales)
     if (activeTab === "propiedad") {
       if (
         !formData.descripcion ||
@@ -830,10 +961,8 @@ function PropertyEditModal({
         );
         return;
       }
-      // Esto llama al PUT /updatePropertyById/X (y es donde está el error 500)
       onSave(formData, photoFiles, setPhotoFiles);
     }
-    // Nota: El botón de Guardar Características es ahora independiente y está en el JSX.
   };
 
   const handleSetPhotoAsPrincipal = async (photoId, propertyId) => {
@@ -841,7 +970,6 @@ function PropertyEditModal({
       return showNotification("Error: ID de propiedad no disponible.", "error");
 
     try {
-      // Verificar si la foto clickeada ya es principal
       const isAlreadyPrincipal = existingModalPhotos.find(
         (p) => p.id_foto === photoId
       )?.principal;
@@ -860,14 +988,11 @@ function PropertyEditModal({
           errorData.message || "No se pudo establecer la foto como principal"
         );
       }
-      // Crear el nuevo array con la foto principal actualizada
       const newPhotosArray = existingModalPhotos.map((photo) => ({
         ...photo,
         principal: photo.id_foto === photoId ? !isAlreadyPrincipal : false,
       }));
-      // Actualizar el estado local del modal
       setExistingModalPhotos(newPhotosArray);
-      // Notificar al componente padre con el array actualizado
       onUpdatePropertyPhotos(propertyId, newPhotosArray);
 
       showNotification("Foto principal actualizada correctamente", "success");
@@ -876,7 +1001,6 @@ function PropertyEditModal({
       showNotification(`Error: ${err.message}`, "error");
     }
   };
-  // Wrapper para onDeleteExistingPhoto para actualizar el estado local del modal
   const handleDeletePhotoFromModal = async (photoId, propertyId) => {
     await onDeleteExistingPhoto(photoId, propertyId);
     setExistingModalPhotos((prevPhotos) =>
@@ -884,7 +1008,7 @@ function PropertyEditModal({
     );
   };
 
-  // Contenido de la pestaña de Propiedad
+  // Contenido de la pestaña de Propiedad (igual que antes)
   const PropertyForm = (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 md:gap-x-6 gap-y-3 md:gap-y-4">
@@ -1139,17 +1263,12 @@ function PropertyEditModal({
     </>
   );
 
-  // Contenido de la pestaña de Características
+  // Contenido de la pestaña de Características (AHORA USA EL TAB NUEVO)
   const CaracteristicasForm = (
-    <CaracteristicasEditor
-      allCaracteristicas={allCaracteristicas}
-      caracteristicasData={caracteristicasData}
-      setCaracteristicasData={setCaracteristicasData}
-      showNotification={showNotification}
-    />
+    // nuevo: usamos el componente que llama a los endpoints fusionados
+    <CaracteristicasTab ref={caracRef} propertyId={property?.id_propiedad} />
   );
 
-  // Condición para mostrar el botón de "Guardar Características"
   const showSaveCaracteristicasButton =
     property?.id_propiedad && activeTab === "caracteristicas";
 
@@ -1159,7 +1278,7 @@ function PropertyEditModal({
         className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-2 sm:mx-4 flex flex-col"
         style={{ maxHeight: "80vh" }}
       >
-        {/* SECCIÓN 1: HEADER FIJO */}
+        {/* HEADER */}
         <div className="flex-shrink-0 p-4 sm:p-6 md:p-8">
           <h2
             className="text-2xl md:text-3xl font-bold mb-4 text-center"
@@ -1168,7 +1287,6 @@ function PropertyEditModal({
             {property ? "Editar" : "Añadir Nueva Propiedad"}
           </h2>
 
-          {/* Selector de Pestañas (Solo en modo Edición) */}
           {property?.id_propiedad && (
             <div
               className="flex justify-center border-b pb-2"
@@ -1209,9 +1327,8 @@ function PropertyEditModal({
           )}
         </div>
 
-        {/* SECCIÓN 2: CONTENIDO SCROLLEABLE */}
+        {/* CONTENIDO */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pt-2 pb-4">
-          {/* Aviso si se intenta editar características sin ID */}
           {activeTab === "caracteristicas" && !property?.id_propiedad && (
             <div
               className="text-center p-4 rounded-lg mb-4 font-semibold"
@@ -1225,14 +1342,13 @@ function PropertyEditModal({
             </div>
           )}
 
-          {/* Contenido Dinámico de Pestaña */}
           {activeTab === "propiedad" && PropertyForm}
           {activeTab === "caracteristicas" &&
             property?.id_propiedad &&
             CaracteristicasForm}
         </div>
 
-        {/* SECCIÓN 3: BOTONES FIJOS */}
+        {/* FOOTER */}
         <div
           className="flex-shrink-0 p-4 sm:p-6 md:p-8 border-t pt-4"
           style={{ borderColor: BORDER_COLOR }}
@@ -1246,7 +1362,6 @@ function PropertyEditModal({
               Cancelar
             </button>
 
-            {/* Botón de Guardado condicional */}
             {activeTab === "propiedad" && (
               <button
                 onClick={handleSave}
@@ -1259,7 +1374,7 @@ function PropertyEditModal({
 
             {showSaveCaracteristicasButton && (
               <button
-                onClick={handleSaveCaracteristicas}
+                onClick={() => caracRef.current?.save() /* nuevo */}
                 className="px-4 md:px-6 py-2 rounded-lg font-semibold text-white order-1 sm:order-2 text-sm md:text-base"
                 style={{ backgroundColor: GREEN_ACTION }}
               >
@@ -1273,21 +1388,16 @@ function PropertyEditModal({
   );
 }
 
-// ====== COMPONENTE DE SELECCIÓN DE CARACTERÍSTICAS (NUEVO) ======
+// ====== COMPONENTE DE SELECCIÓN DE CARACTERÍSTICAS (LEGACY, se deja por compatibilidad) ======
 function CaracteristicasEditor({
   allCaracteristicas,
   caracteristicasData,
   setCaracteristicasData,
 }) {
-  // Función para agrupar características por categoría
   const groupedCaracteristicas = useMemo(() => {
-    // Aseguramos que 'allCaracteristicas' sea un array antes de reducir
     if (!Array.isArray(allCaracteristicas)) return {};
-
     return allCaracteristicas.reduce((groups, item) => {
-      // Usamos item.nombre_categoria con fallback a 'Otros'
       const category = item.nombre_categoria || "Otros";
-
       if (!groups[category]) {
         groups[category] = [];
       }
@@ -1297,24 +1407,17 @@ function CaracteristicasEditor({
   }, [allCaracteristicas]);
 
   const handleQuantityChange = (id, newQuantity) => {
-    // Limpiamos el valor de entrada a un número o 0
     const quantity = Number(newQuantity) || 0;
-
     setCaracteristicasData((prev) => {
       const index = prev.findIndex((c) => c.id_caracteristica === id);
-
       if (quantity <= 0) {
-        // Si la cantidad es 0 o menos, la eliminamos del array
         return prev.filter((c) => c.id_caracteristica !== id);
       }
-
       if (index !== -1) {
-        // Si ya existe, actualizamos la cantidad
         const updated = [...prev];
         updated[index] = { ...updated[index], cantidad: quantity };
         return updated;
       } else {
-        // Si es nuevo y la cantidad es > 0, lo añadimos
         return [...prev, { id_caracteristica: id, cantidad: quantity }];
       }
     });
@@ -1323,9 +1426,7 @@ function CaracteristicasEditor({
   const handleBooleanChange = (id, checked) => {
     setCaracteristicasData((prev) => {
       const index = prev.findIndex((c) => c.id_caracteristica === id);
-
       if (checked) {
-        // Si está marcado, agregamos o actualizamos con cantidad 1
         if (index !== -1) {
           const updated = [...prev];
           updated[index] = { ...updated[index], cantidad: 1 };
@@ -1334,20 +1435,17 @@ function CaracteristicasEditor({
           return [...prev, { id_caracteristica: id, cantidad: 1 }];
         }
       } else {
-        // Si está desmarcado, lo eliminamos del array
         return prev.filter((c) => c.id_caracteristica !== id);
       }
     });
   };
 
-  // Función auxiliar para obtener la cantidad actual de una característica
   const getQuantity = (id) => {
     return (
       caracteristicasData.find((c) => c.id_caracteristica === id)?.cantidad || 0
     );
   };
 
-  // Función auxiliar para verificar si una característica booleana está marcada
   const isChecked = (id) => {
     return caracteristicasData.some((c) => c.id_caracteristica === id);
   };
@@ -1363,7 +1461,6 @@ function CaracteristicasEditor({
         </div>
       )}
 
-      {/* Renderizado agrupado por Categoría */}
       {Object.keys(groupedCaracteristicas)
         .sort()
         .map((category) => (
@@ -1394,9 +1491,7 @@ function CaracteristicasEditor({
                     {caract.nombre_caracteristica}
                   </span>
 
-                  {/* Renderizado condicional según el tipo de valor */}
                   {caract.tipo_valor === "booleana" ? (
-                    // Checkbox para características booleanas
                     <label className="flex items-center cursor-pointer">
                       <input
                         type="checkbox"
@@ -1422,7 +1517,6 @@ function CaracteristicasEditor({
                       </span>
                     </label>
                   ) : (
-                    // Input numérico para características numéricas
                     <input
                       type="number"
                       min="0"
@@ -1472,7 +1566,7 @@ function PhotoUploader({
           ? `${photo.url_foto}?f_auto,q_auto,dpr_auto`
           : undefined,
         isExisting: true,
-        principal: photo.principal, // Incluir estado principal
+        principal: photo.principal,
       }));
 
       const newFilePreviews = [];
@@ -1590,7 +1684,7 @@ function PhotoUploader({
                 alt={preview.name}
                 className="w-full h-16 sm:h-20 object-cover rounded"
               />
-              {/* BOTÓN/ICONO DE ESTRELLA (Principal) */}
+              {/* Estrella principal */}
               {preview.isExisting && (
                 <div className="absolute top-0 left-0 m-1 p-0.5 bg-black bg-opacity-40 rounded-full cursor-pointer opacity-80 group-hover:opacity-100 transition-opacity">
                   <StarIcon
@@ -1604,7 +1698,7 @@ function PhotoUploader({
                   />
                 </div>
               )}
-              {/* Botón de Eliminar */}
+              {/* Eliminar */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1690,7 +1784,6 @@ function StarIcon({ isPrincipal = false, onClick }) {
           fill: isPrincipal ? PRIMARY_COLOR : "none",
         }}
       />
-      {/* Relleno para que se vea dorado, utilizando la propiedad fill en el SVG principal */}
       <path
         d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
         fill={isPrincipal ? PRIMARY_COLOR : "none"}
