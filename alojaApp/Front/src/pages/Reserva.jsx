@@ -123,16 +123,15 @@ export default function Reserva() {
         setPropiedad(data);
 
         // recomendadas
-        const recRes = await fetch(
-          `${API_URL}/properties/destacadas?excludeId=${id}`
-        );
+        // recomendadas
+        const recRes = await fetch(`${API_URL}/properties/destacadas?excludeId=${id}`);
         if (recRes.ok) {
-          const recData = await res.json().catch(() => []);
-          // en caso de que el endpoint no devuelva JSON, fallback
+          const recData = await recRes.json().catch(() => []); // ✅ usar recRes
           setRecomendadas(Array.isArray(recData) ? recData : []);
         } else {
           setRecomendadas([]);
         }
+
       } catch (err) {
         console.error("Error cargando datos:", err);
         setErrorMsg("No pudimos cargar la propiedad. Intentá nuevamente.");
