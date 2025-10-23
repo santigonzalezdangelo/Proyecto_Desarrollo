@@ -69,6 +69,7 @@ class UserController {
         "dni",
         "calle",
         "numero",
+        "telefono",
         "cbu",
         "id_localidad",
       ];

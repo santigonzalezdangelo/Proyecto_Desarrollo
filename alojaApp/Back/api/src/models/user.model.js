@@ -2,7 +2,6 @@ import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 // import { Localidad } from "./localidad.model.js";
 
-
 const userModel = sequelize.define(
   "User",
   {
@@ -21,11 +20,11 @@ const userModel = sequelize.define(
     },
 
     dni: {
-        type: DataTypes.STRING(20),
+      type: DataTypes.STRING(20),
       allowNull: true,
     },
 
-     correo: {
+    correo: {
       type: DataTypes.STRING(120),
       allowNull: false,
       unique: true,
@@ -37,18 +36,18 @@ const userModel = sequelize.define(
     },
 
     calle: {
-        type: DataTypes.STRING(100),
-        allowNull: true,
+      type: DataTypes.STRING(100),
+      allowNull: true,
     },
 
     numero: {
-        type: DataTypes.STRING(10),
-        allowNull: true,
+      type: DataTypes.STRING(10),
+      allowNull: true,
     },
 
-    cbu : {
-        type: DataTypes.STRING(22),
-        allowNull: true,
+    cbu: {
+      type: DataTypes.STRING(22),
+      allowNull: true,
     },
 
     id_rol: {
@@ -57,10 +56,14 @@ const userModel = sequelize.define(
       references: { model: "roles", key: "id_rol" },
     },
     id_localidad: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: { model: "localidades", key: "id_localidad" },
-      },
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: "localidades", key: "id_localidad" },
+    },
+    telefono: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   },
   {
     sequelize,
@@ -73,4 +76,3 @@ const userModel = sequelize.define(
 );
 
 export default userModel;
-

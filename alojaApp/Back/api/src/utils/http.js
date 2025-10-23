@@ -1,4 +1,3 @@
-// utils/http.js
 export const createResponse = (req, res, statusCode, data, msg) => {
   return res.status(statusCode).json({
     data,
