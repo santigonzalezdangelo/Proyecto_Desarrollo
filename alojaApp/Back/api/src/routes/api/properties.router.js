@@ -16,15 +16,10 @@ router.get("/getPropertiesById/:id", PropertyController.getPropertyById);
 router.get("/getPropiedadById/:id", PropertyController.getPropiedadById);
 
 // --- PANEL DE ANFITRIÓN (Privadas) ---
-router.get("/my-properties",
-  requireAuth,
-  PropertyController.getMyProperties
-);
-router.post(
-  "/createProperty",
-  requireAuth,
-  PropertyController.createProperty
-);
+
+router.get("/my-properties", requireAuth, PropertyController.getMyProperties);
+router.post("/createProperty", requireAuth, PropertyController.createProperty);
+
 router.put(
   "/updatePropertyById/:id",
   requireAuth,
@@ -37,7 +32,7 @@ router.delete(
 );
 // Permite guardar las características y sus cantidades para una propiedad respetando la Jerarquia de Recursos.
 router.put(
-  '/caracteristicas/:id_propiedad',
+  "/caracteristicas/:id_propiedad",
   requireAuth,
   PropertyController.setCaracteristicasForProperty // <-- Nuevo método
 );

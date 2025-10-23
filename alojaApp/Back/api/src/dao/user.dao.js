@@ -1,6 +1,12 @@
 // src/dao/user.dao.js
 import PostgresDAO from "./postgres.dao.js";
-import { userModel, roleModel, localidadModel, ciudadModel, paisModel } from "../models/associations.js";
+import {
+  userModel,
+  roleModel,
+  localidadModel,
+  ciudadModel,
+  paisModel,
+} from "../models/associations.js";
 
 class UserDAO extends PostgresDAO {
   constructor() {
@@ -64,6 +70,10 @@ class UserDAO extends PostgresDAO {
     }
   };
 
+  updateRoleByUserId = async (id_usuario, id_rol) => {
+    await userModel.update({ id_rol }, { where: { id_usuario } });
+    return this.findById(id_usuario); // opcional: devolver el user actualizado
+  };
 }
 
 export default new UserDAO();

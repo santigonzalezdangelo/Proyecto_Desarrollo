@@ -28,9 +28,9 @@ class PropertyDAO extends PostgresDAO {
     try {
       return await this.model.findAll({
         include: [
-            { model: photoModel, as: "fotos" },
-            { model: localidadModel, as: "localidad" },
-            { model: tipoPropiedadModel, as: "tipoPropiedad" }
+          { model: photoModel, as: "fotos" },
+          { model: localidadModel, as: "localidad" },
+          { model: tipoPropiedadModel, as: "tipoPropiedad" },
         ],
       });
     } catch (error) {
@@ -44,9 +44,9 @@ class PropertyDAO extends PostgresDAO {
     try {
       return await this.model.findByPk(id, {
         include: [
-            { model: photoModel, as: "fotos" },
-            { model: localidadModel, as: "localidad" },
-            { model: tipoPropiedadModel, as: "tipoPropiedad" }
+          { model: photoModel, as: "fotos" },
+          { model: localidadModel, as: "localidad" },
+          { model: tipoPropiedadModel, as: "tipoPropiedad" },
         ],
       });
     } catch (error) {
@@ -63,22 +63,9 @@ class PropertyDAO extends PostgresDAO {
       const properties = await this.model.findAll({
         where: { id_anfitrion: anfitrionId },
         include: [
-            { model: photoModel, as: "fotos" },
-            { model: localidadModel, as: "localidad" },
-            { model: tipoPropiedadModel, as: "tipoPropiedad" },
-            { 
-              model: reservationModel, 
-              as: "reservas",
-              where: {
-                fecha_inicio: {
-                  [Op.lte]: new Date() // Fecha de inicio <= hoy
-                },
-                fecha_fin: {
-                  [Op.gte]: new Date() // Fecha de fin >= hoy
-                }
-              },
-              required: false // LEFT JOIN para incluir propiedades sin reservas
-            }
+          { model: photoModel, as: "fotos" },
+          { model: localidadModel, as: "localidad" },
+          { model: tipoPropiedadModel, as: "tipoPropiedad" },
         ],
       });
 
@@ -116,6 +103,22 @@ class PropertyDAO extends PostgresDAO {
   };
 
   // Crea una propiedad y la devuelve con sus asociaciones
+  // createPropertyWithAssociation = async (data, anfitrionId) => {
+  //   try {
+  //     const propertyData = {
+  //       ...data,
+  //       id_anfitrion: anfitrionId,
+  //     };
+  //     const newProperty = await this.model.create(propertyData);
+
+  //     // Volvemos a buscar la propiedad recién creada para obtener las asociaciones
+  //     return await this.getByIdWithPhotos(newProperty.id_propiedad);
+  //   } catch (error) {
+  //     console.error('Error al crear una propiedad para un anfitrion:', error);
+  //     throw new Error(error);
+  //   }
+  // };
+
   createPropertyWithAssociation = async (data, anfitrionId) => {
     try {
       const propertyData = {
@@ -123,11 +126,11 @@ class PropertyDAO extends PostgresDAO {
         id_anfitrion: anfitrionId,
       };
       const newProperty = await this.model.create(propertyData);
-      
+
       // Volvemos a buscar la propiedad recién creada para obtener las asociaciones
       return await this.getByIdWithPhotos(newProperty.id_propiedad);
     } catch (error) {
-      console.error('Error al crear una propiedad para un anfitrion:', error);
+      console.error("Error al crear una propiedad para un anfitrion:", error);
       throw new Error(error);
     }
   };
@@ -136,20 +139,20 @@ class PropertyDAO extends PostgresDAO {
   deleteById = async (id) => {
     try {
       return await this.model.destroy({
-        where: { id_propiedad: id }
+        where: { id_propiedad: id },
       });
     } catch (error) {
       console.error("Error deleting property:", error);
       throw new Error(error);
     }
   };
-  
+
   // Este método está bien, no necesita cambios
   updateById = async (id, data) => {
     try {
       const [rowsUpdated, updatedRows] = await this.model.update(data, {
         where: { id_propiedad: id },
-        returning: true
+        returning: true,
       });
       if (rowsUpdated === 0) {
         throw new Error("Property not found for update");
@@ -161,7 +164,7 @@ class PropertyDAO extends PostgresDAO {
     }
   };
 
-    //SANTI
+  //SANTI
   getAllWithPhotos = async () => {
     try {
       return await this.model.findAll({
@@ -244,7 +247,6 @@ class PropertyDAO extends PostgresDAO {
     }
   };
 
-
   // 📦 src/dao/property.dao.js
   getFeaturedProperties = async (limit = 4, excludeId = null) => {
     try {
@@ -292,17 +294,24 @@ class PropertyDAO extends PostgresDAO {
       });
 
       const mapped = properties.map((p) => {
-        const calificaciones = p.reservas?.map((r) => r.calificacion?.puntuacion).filter(Boolean);
+        const calificaciones = p.reservas
+          ?.map((r) => r.calificacion?.puntuacion)
+          .filter(Boolean);
         const ratingPromedio =
           calificaciones.length > 0
-            ? (calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length).toFixed(1)
+            ? (
+                calificaciones.reduce((a, b) => a + b, 0) /
+                calificaciones.length
+              ).toFixed(1)
             : 0;
 
         return {
           id_propiedad: p.id_propiedad,
           imagen_url: p.fotos?.[0]?.url_foto || null,
           titulo: p.descripcion.slice(0, 40) + "...",
-          subtitulo: `${p.localidad?.nombre ?? ""}, ${p.localidad?.ciudad?.nombre_ciudad ?? ""}`,
+          subtitulo: `${p.localidad?.nombre ?? ""}, ${
+            p.localidad?.ciudad?.nombre_ciudad ?? ""
+          }`,
           rating: Number(ratingPromedio),
         };
       });
@@ -313,8 +322,6 @@ class PropertyDAO extends PostgresDAO {
       throw new Error(error);
     }
   };
-
 }
 
 export default new PropertyDAO();
-

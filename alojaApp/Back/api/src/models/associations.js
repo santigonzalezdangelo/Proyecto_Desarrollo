@@ -13,14 +13,21 @@ import paisModel from "./pais.model.js";
 import ratingPropertyModel from "./ratingProperty.model.js";
 import caracteristicaModel from "./caracteristica.model.js";
 import caracteristicaPropiedadModel from "./caracteristicaPropiedad.model.js";
+import messageModel from "./messages.model.js";
 
 /* ===================== */
 /* 🌍 Relaciones Geográficas */
 /* ===================== */
 
 // Localidad → Ciudad → País
-localidadModel.belongsTo(ciudadModel, { foreignKey: "id_ciudad", as: "ciudad" });
-ciudadModel.hasMany(localidadModel, { foreignKey: "id_ciudad", as: "localidades" });
+localidadModel.belongsTo(ciudadModel, {
+  foreignKey: "id_ciudad",
+  as: "ciudad",
+});
+ciudadModel.hasMany(localidadModel, {
+  foreignKey: "id_ciudad",
+  as: "localidades",
+});
 
 ciudadModel.belongsTo(paisModel, { foreignKey: "id_pais", as: "pais" });
 paisModel.hasMany(ciudadModel, { foreignKey: "id_pais", as: "ciudades" });
@@ -30,16 +37,34 @@ paisModel.hasMany(ciudadModel, { foreignKey: "id_pais", as: "ciudades" });
 /* ===================== */
 
 // Tipo de Propiedad ↔ Propiedad
-propertyModel.belongsTo(tipoPropiedadModel, { foreignKey: "id_tipo_propiedad", as: "tipoPropiedad" });
-tipoPropiedadModel.hasMany(propertyModel, { foreignKey: "id_tipo_propiedad", as: "properties" });
+propertyModel.belongsTo(tipoPropiedadModel, {
+  foreignKey: "id_tipo_propiedad",
+  as: "tipoPropiedad",
+});
+tipoPropiedadModel.hasMany(propertyModel, {
+  foreignKey: "id_tipo_propiedad",
+  as: "properties",
+});
 
 // Usuario (Anfitrión) ↔ Propiedades
-propertyModel.belongsTo(userModel, { foreignKey: "id_anfitrion", as: "anfitrion" });
-userModel.hasMany(propertyModel, { foreignKey: "id_anfitrion", as: "properties" });
+propertyModel.belongsTo(userModel, {
+  foreignKey: "id_anfitrion",
+  as: "anfitrion",
+});
+userModel.hasMany(propertyModel, {
+  foreignKey: "id_anfitrion",
+  as: "properties",
+});
 
 // Localidad ↔ Propiedad
-propertyModel.belongsTo(localidadModel, { foreignKey: "id_localidad", as: "localidad" });
-localidadModel.hasMany(propertyModel, { foreignKey: "id_localidad", as: "properties" });
+propertyModel.belongsTo(localidadModel, {
+  foreignKey: "id_localidad",
+  as: "localidad",
+});
+localidadModel.hasMany(propertyModel, {
+  foreignKey: "id_localidad",
+  as: "properties",
+});
 
 // Propiedad tiene muchas Caracteristicas a través de CaracteristicasPropiedad
 propertyModel.belongsToMany(caracteristicaModel, {
@@ -58,19 +83,35 @@ caracteristicaModel.belongsToMany(propertyModel, {
 });
 
 // Definir las relaciones directas con la tabla intermedia para facilitar el DAO
-caracteristicaPropiedadModel.belongsTo(propertyModel, { foreignKey: 'id_propiedad' });
-caracteristicaPropiedadModel.belongsTo(caracteristicaModel, { foreignKey: 'id_caracteristica' });
-propertyModel.hasMany(caracteristicaPropiedadModel, { foreignKey: 'id_propiedad', as: 'caracteristicas_propiedad', onDelete: "CASCADE" });
-caracteristicaModel.hasMany(caracteristicaPropiedadModel, { foreignKey: 'id_caracteristica', as: 'caracteristicas_propiedad' });
-
-
+caracteristicaPropiedadModel.belongsTo(propertyModel, {
+  foreignKey: "id_propiedad",
+});
+caracteristicaPropiedadModel.belongsTo(caracteristicaModel, {
+  foreignKey: "id_caracteristica",
+});
+propertyModel.hasMany(caracteristicaPropiedadModel, {
+  foreignKey: "id_propiedad",
+  as: "caracteristicas_propiedad",
+  onDelete: "CASCADE",
+});
+caracteristicaModel.hasMany(caracteristicaPropiedadModel, {
+  foreignKey: "id_caracteristica",
+  as: "caracteristicas_propiedad",
+});
 
 /* ===================== */
 /* 📸 Fotos */
 /* ===================== */
 
-propertyModel.hasMany(photoModel, { foreignKey: "id_propiedad", as: "fotos", onDelete: "CASCADE" });
-photoModel.belongsTo(propertyModel, { foreignKey: "id_propiedad", as: "propiedad" });
+propertyModel.hasMany(photoModel, {
+  foreignKey: "id_propiedad",
+  as: "fotos",
+  onDelete: "CASCADE",
+});
+photoModel.belongsTo(propertyModel, {
+  foreignKey: "id_propiedad",
+  as: "propiedad",
+});
 
 /* ===================== */
 /* 👤 Roles y Usuarios */
@@ -83,24 +124,48 @@ userModel.belongsTo(roleModel, { foreignKey: "id_rol", as: "rol" });
 /* 🏠 Localidad y Usuarios */
 /* ===================== */
 
-userModel.belongsTo(localidadModel, { foreignKey: "id_localidad", as: "localidad" });
-localidadModel.hasMany(userModel, { foreignKey: "id_localidad", as: "usuarios" });
+userModel.belongsTo(localidadModel, {
+  foreignKey: "id_localidad",
+  as: "localidad",
+});
+localidadModel.hasMany(userModel, {
+  foreignKey: "id_localidad",
+  as: "usuarios",
+});
 
 /* ===================== */
 /* 📅 Reservas */
 /* ===================== */
 
 // Usuario ↔ Reservas
-userModel.hasMany(reservationModel, { foreignKey: "id_usuario", as: "reservas" });
-reservationModel.belongsTo(userModel, { foreignKey: "id_usuario", as: "usuario" });
+userModel.hasMany(reservationModel, {
+  foreignKey: "id_usuario",
+  as: "reservas",
+});
+reservationModel.belongsTo(userModel, {
+  foreignKey: "id_usuario",
+  as: "usuario",
+});
 
 // Propiedad ↔ Reservas
-propertyModel.hasMany(reservationModel, { foreignKey: "id_propiedad", as: "reservas" });
-reservationModel.belongsTo(propertyModel, { foreignKey: "id_propiedad", as: "propiedad" });
+propertyModel.hasMany(reservationModel, {
+  foreignKey: "id_propiedad",
+  as: "reservas",
+});
+reservationModel.belongsTo(propertyModel, {
+  foreignKey: "id_propiedad",
+  as: "propiedad",
+});
 
 // Estado ↔ Reservas
-stateModel.hasMany(reservationModel, { foreignKey: "id_estado", as: "reservas" });
-reservationModel.belongsTo(stateModel, { foreignKey: "id_estado", as: "estado" });
+stateModel.hasMany(reservationModel, {
+  foreignKey: "id_estado",
+  as: "reservas",
+});
+reservationModel.belongsTo(stateModel, {
+  foreignKey: "id_estado",
+  as: "estado",
+});
 
 /* ===================== */
 /* 🌟 Calificaciones Propiedad */
@@ -117,6 +182,29 @@ reservationModel.hasOne(ratingPropertyModel, {
 ratingPropertyModel.belongsTo(reservationModel, {
   foreignKey: "id_reserva",
   as: "reserva",
+});
+
+//mensajes
+
+userModel.hasMany(messageModel, {
+  as: "sentMessages",
+  foreignKey: "from_user_id",
+  sourceKey: "id_usuario",
+});
+userModel.hasMany(messageModel, {
+  as: "receivedMessages",
+  foreignKey: "to_user_id",
+  sourceKey: "id_usuario",
+});
+messageModel.belongsTo(userModel, {
+  as: "fromUser",
+  foreignKey: "from_user_id",
+  targetKey: "id_usuario",
+});
+messageModel.belongsTo(userModel, {
+  as: "toUser",
+  foreignKey: "to_user_id",
+  targetKey: "id_usuario",
 });
 
 /* ===================== */
@@ -136,5 +224,8 @@ export {
   paisModel,
   ratingPropertyModel,
   caracteristicaModel,
-  caracteristicaPropiedadModel
+  caracteristicaPropiedadModel,
+  messageModel,
 };
+
+// exportá también el messageModel si acá re-exportás los modelos
