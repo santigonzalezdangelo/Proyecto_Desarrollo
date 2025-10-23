@@ -9,7 +9,6 @@ import {
 } from "../models/associations.js";
 
 import { Op, fn, col, literal } from "sequelize";
-
 /**
  * 🏡 Propiedades destacadas (para portada)
  */
