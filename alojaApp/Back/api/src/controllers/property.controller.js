@@ -204,8 +204,8 @@ updateProperty = async (req, res) => {
           id_caracteristica_propiedad: cp.id_caracteristica_propiedad,
           id_caracteristica: cp.id_caracteristica,
           cantidad: cp.cantidad,
-          nombre_caracteristica: cp.caracteristica?.nombre_caracteristica,
-          nombre_categoria: cp.caracteristica?.nombre_categoria,
+          nombre_caracteristica: cp.caracteristica?.dataValues?.nombre_caracteristica || cp.caracteristica?.nombre_caracteristica || 'Sin nombre',
+          nombre_categoria: cp.caracteristica?.dataValues?.nombre_categoria || cp.caracteristica?.nombre_categoria || 'Sin categoría',
         })) ?? [];
 
       // ✅ respuesta

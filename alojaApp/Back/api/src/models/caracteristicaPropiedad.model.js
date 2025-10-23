@@ -28,7 +28,7 @@ const CaracteristicaPropiedadModel = sequelize.define(
     },
     cantidad: {
       type: DataTypes.INTEGER,
-      allowNull: true, // Puede ser 0 o null si solo indica presencia
+      allowNull: true, // Permitir null para características booleanas
       defaultValue: 1, 
     },
   },

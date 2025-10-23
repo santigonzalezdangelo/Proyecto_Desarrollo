@@ -18,6 +18,10 @@ const CaracteristicaModel = sequelize.define(
         type: DataTypes.STRING(50),
         allowNull: false,
     },
+    tipo_valor: { 
+      type: DataTypes.ENUM('booleana', 'numerica'),
+      allowNull: true,
+  }
   },
   {
     freezeTableName: true,
