@@ -27,10 +27,12 @@ class CaracteristicaController {
     try {
       const caracteristicas = await CaracteristicaDAO.getAll();
       
-      // Mapeamos para que la clave sea 'nombre_caracteristica' (tal como está en tu DB)
+      // Mapeamos para incluir todos los campos necesarios
       const mappedCaracs = caracteristicas.map(c => ({
         id_caracteristica: c.id_caracteristica,
-        nombre_caracteristica: c.nombre_caracteristica
+        nombre_caracteristica: c.nombre_caracteristica,
+        nombre_categoria: c.nombre_categoria || 'Otros', // Incluir la categoría
+        tipo_valor: c.tipo_valor || 'numerica' // Incluir el tipo de valor
       }));
 
       res.status(200).json(mappedCaracs);

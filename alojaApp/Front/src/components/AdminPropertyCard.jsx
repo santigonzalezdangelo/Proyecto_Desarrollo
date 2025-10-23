@@ -33,40 +33,34 @@ const AdminPropertyCard = ({ propiedad, onEliminar, onCambiarEstado }) => {
             </div>
 
             {/* Columna de Acciones */}
-            <div className="flex flex-col justify-center gap-2 shrink-0 md:w-44">
+            <div className="flex flex-col justify-center items-end gap-3 shrink-0 md:w-48">
                 <span className={`text-center px-3 py-1 text-xs font-bold uppercase rounded-full mb-2 ${
-                    estado_publicacion === 'PUBLICADO' 
+                    estado_publicacion === 'DISPONIBLE' 
                         ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
+                        : 'bg-orange-100 text-orange-800'
                 }`}>
                     {estado_publicacion}
                 </span>
-                <Link 
-                    to={`/propiedades/editar/${id_propiedad}`} 
-                    className="text-center font-semibold text-sm py-2 px-3 rounded-lg text-white hover:opacity-90 transition-opacity" 
-                    style={{ backgroundColor: "#EABA4B" }}
-                >
-                    📝 Editar
-                </Link>
                 
-                {/* --- LÓGICA DE BOTÓN --- */}
-                <button
-                    onClick={() => onCambiarEstado(id_propiedad, estado_publicacion === 'PUBLICADO' ? 'BORRADOR' : 'PUBLICADO')}
-                    className={`text-center font-semibold text-sm py-2 px-3 rounded-lg text-white transition-colors ${
-                        estado_publicacion === 'PUBLICADO' 
-                            ? 'bg-yellow-500 hover:bg-yellow-600'  // Amarillo para "Despublicar"
-                            : 'bg-green-600 hover:bg-green-700'    // VERDE para "Publicar"
-                    }`}
-                >
-                    {estado_publicacion === 'PUBLICADO' ? '⏸️ Despublicar' : '▶️ Publicar'}
-                </button>
+                {/* Botones cuadrados con emojis */}
+                <div className="flex flex-col gap-2">
+                    <Link 
+                        to={`/propiedades/editar/${id_propiedad}`} 
+                        className="w-12 h-12 flex items-center justify-center rounded-lg text-white hover:opacity-90 transition-opacity text-2xl" 
+                        style={{ backgroundColor: "#EABA4B" }}
+                        title="Editar propiedad"
+                    >
+                        ✏️
+                    </Link>
 
-                <button 
-                    onClick={() => onEliminar(id_propiedad)} 
-                    className="text-center font-semibold text-sm py-2 px-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-                >
-                    🗑️ Eliminar
-                </button>
+                    <button 
+                        onClick={() => onEliminar(id_propiedad)} 
+                        className="w-12 h-12 flex items-center justify-center rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors text-2xl"
+                        title="Eliminar propiedad"
+                    >
+                        🗑️
+                    </button>
+                </div>
             </div>
         </div>
     );

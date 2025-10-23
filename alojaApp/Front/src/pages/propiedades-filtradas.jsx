@@ -542,7 +542,7 @@ const AMBER_300 = "#FACC15"; // bordes/foco
 const ORANGE_400 = "#FB923C"; // acento suave
 const TEXT_DARK = "#0F172A";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 // ✅ Endpoints reales
 const LOCALIDADES_URL = `${API_URL}/localidades/search`;
@@ -1131,7 +1131,9 @@ export default function PropiedadesFiltradas() {
                     }`}
                     subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`}
                     rating={Number(p.rating ?? 0)}
+                    onClick={() => window.location.assign(`/reserva?id=${p.id_propiedad}`)}   // 👈 esta línea
                   />
+
                 ))}
               </div>
             </>
@@ -1155,6 +1157,7 @@ export default function PropiedadesFiltradas() {
                 }`}
                 subtitle={`${p.ciudad ?? ""}${p.pais ? `, ${p.pais}` : ""}`}
                 rating={Number(p.rating ?? 0)}
+                onClick={() => window.location.assign(`/reserva?id=${p.id_propiedad}`)}   // 👈 esta línea
               />
             ))}
           </div>

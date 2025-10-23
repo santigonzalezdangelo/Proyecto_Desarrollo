@@ -16,8 +16,10 @@ router.get("/getPropertiesById/:id", PropertyController.getPropertyById);
 router.get("/getPropiedadById/:id", PropertyController.getPropiedadById);
 
 // --- PANEL DE ANFITRIÓN (Privadas) ---
+
 router.get("/my-properties", requireAuth, PropertyController.getMyProperties);
 router.post("/createProperty", requireAuth, PropertyController.createProperty);
+
 router.put(
   "/updatePropertyById/:id",
   requireAuth,
