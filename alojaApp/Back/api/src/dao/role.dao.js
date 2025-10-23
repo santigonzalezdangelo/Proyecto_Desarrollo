@@ -19,4 +19,9 @@ export const roleDao = {
 
   // Elimina
   deleteById: (id_rol) => roleModel.destroy({ where: { id_rol } }),
+
+  async getIdByName(nombre_rol) {
+    const r = await this.findByName(nombre_rol);
+    return r?.id_rol ?? null;
+  },
 };
