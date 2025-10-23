@@ -468,30 +468,8 @@ export default function AdministrarPropiedades() {
     setPropertyToEdit(null);
   };
 
-  // traer propiedad completa
-  const fetchPropertyDetails = async (propiedad) => {
-    try {
-      const response = await fetch(
-        `${API_BASE}/properties/getPropiedadById/${propiedad.id_propiedad}`,
-        { credentials: "include" }
-      );
-      if (!response.ok) {
-        throw new Error(
-          `Error ${response.status}: No se pudo cargar el detalle completo.`
-        );
-      }
-      const fullProperty = await response.json();
-      return fullProperty;
-    } catch (err) {
-      console.error("Error al cargar detalles de la propiedad:", err);
-      showNotification(`Error: ${err.message}`, "error");
-      return null;
-    }
-  };
-
   const handleOpenEditModal = async (propiedad) => {
-    const full = await fetchPropertyDetails(propiedad);
-    setPropertyToEdit(full || propiedad);
+    setPropertyToEdit(propiedad);
     setIsModalOpen(true);
   };
 
