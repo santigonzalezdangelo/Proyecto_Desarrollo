@@ -11,11 +11,14 @@ const NAV_HEIGHT = 72;
 /** ====== Helpers de URL / Auth robustos ====== */
 const RAW_API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 function withNoDoubleSlash(base, path) {
-  return `${base.replace(/\/+$/,"")}/${path.replace(/^\/+/,"")}`;
+  return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 const CANDIDATE_BASES = [RAW_API, withNoDoubleSlash(RAW_API, "/api")];
 
-async function tryFetchJSON(path, { useAuthHeader = true, method = "GET", body } = {}) {
+async function tryFetchJSON(
+  path,
+  { useAuthHeader = true, method = "GET", body } = {}
+) {
   const token =
     localStorage.getItem("token") ||
     localStorage.getItem("authToken") ||
@@ -29,13 +32,18 @@ async function tryFetchJSON(path, { useAuthHeader = true, method = "GET", body }
       try {
         const r = await fetch(url, {
           method,
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           credentials: "include",
           ...(body ? { body: JSON.stringify(body) } : {}),
         });
         if (r.ok) return await r.json();
         lastErr = new Error(`HTTP ${r.status} ${url}`);
-      } catch (e) { lastErr = e; }
+      } catch (e) {
+        lastErr = e;
+      }
     }
 
     try {
@@ -47,43 +55,66 @@ async function tryFetchJSON(path, { useAuthHeader = true, method = "GET", body }
       });
       if (r.ok) return await r.json();
       lastErr = new Error(`HTTP ${r.status} ${url}`);
-    } catch (e) { lastErr = e; }
+    } catch (e) {
+      lastErr = e;
+    }
   }
   throw lastErr || new Error("No se pudo contactar al API");
 }
 
 /** ====== Otros helpers de UI/Data ====== */
-function onlyDigits(x = "") { return String(x).replace(/\D/g, ""); }
+function onlyDigits(x = "") {
+  return String(x).replace(/\D/g, "");
+}
 function initialsOf(name = "", last = "") {
-  const a = (name?.[0] || "").toUpperCase(); const b = (last?.[0] || "").toUpperCase();
+  const a = (name?.[0] || "").toUpperCase();
+  const b = (last?.[0] || "").toUpperCase();
   return `${a}${b}` || "U";
 }
 function maskCBU(cbu = "") {
   if (!cbu) return "";
   const s = String(cbu).replace(/\D/g, "");
   if (s.length <= 6) return s;
-  return `${s.slice(0,3)}-${s.slice(3,6)} •••• •••• •••• ${s.slice(-3)}`;
+  return `${s.slice(0, 3)}-${s.slice(3, 6)} •••• •••• •••• ${s.slice(-3)}`;
 }
 
 /** ====== Detección de rol ====== */
 const ROLE_ID_MAP = { 1: "Huésped", 2: "Anfitrión" };
 
 function normalize(str = "") {
-  return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+  return String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 function extractRoleName(current = {}) {
   const rawCandidates = [
-    current?.id_rol, current?.idRol, current?.rol, current?.role,
-    current?.nombre_rol, current?.rol_nombre, current?.tipo, current?.role_name,
-    current?.user?.rol, current?.user?.role,
-    current?.data?.id_rol, current?.data?.idRol, current?.data?.rol,
-    current?.data?.role, current?.data?.nombre_rol,
-    current?.roles, current?.data?.roles,
+    current?.id_rol,
+    current?.idRol,
+    current?.rol,
+    current?.role,
+    current?.nombre_rol,
+    current?.rol_nombre,
+    current?.tipo,
+    current?.role_name,
+    current?.user?.rol,
+    current?.user?.role,
+    current?.data?.id_rol,
+    current?.data?.idRol,
+    current?.data?.rol,
+    current?.data?.role,
+    current?.data?.nombre_rol,
+    current?.roles,
+    current?.data?.roles,
   ];
   const nameFromObj = (obj) => {
     if (obj && typeof obj === "object") {
-      if (typeof obj.id === "number" && ROLE_ID_MAP[obj.id]) return ROLE_ID_MAP[obj.id];
-      return obj.nombre ?? obj.name ?? obj.title ?? obj.descripcion ?? obj.role ?? "";
+      if (typeof obj.id === "number" && ROLE_ID_MAP[obj.id])
+        return ROLE_ID_MAP[obj.id];
+      return (
+        obj.nombre ?? obj.name ?? obj.title ?? obj.descripcion ?? obj.role ?? ""
+      );
     }
     return "";
   };
@@ -91,12 +122,14 @@ function extractRoleName(current = {}) {
     if (typeof c === "number" && ROLE_ID_MAP[c]) return ROLE_ID_MAP[c];
     if (typeof c === "string" && c.trim()) return c;
     if (c && typeof c === "object" && !Array.isArray(c)) {
-      const n = nameFromObj(c); if (typeof n === "string" && n.trim()) return n;
+      const n = nameFromObj(c);
+      if (typeof n === "string" && n.trim()) return n;
     }
     if (Array.isArray(c) && c.length) {
       for (const it of c) {
         if (typeof it === "string" && it.trim()) return it;
-        const n = nameFromObj(it); if (typeof n === "string" && n.trim()) return n;
+        const n = nameFromObj(it);
+        if (typeof n === "string" && n.trim()) return n;
       }
     }
   }
@@ -105,7 +138,14 @@ function extractRoleName(current = {}) {
 function roleFromCurrent(current) {
   const raw = extractRoleName(current);
   const r = normalize(raw);
-  if (r.includes("anfitrion") || r.includes("host") || r.includes("propiet") || r.includes("dueno") || r.includes("dueño") || r === "2") {
+  if (
+    r.includes("anfitrion") ||
+    r.includes("host") ||
+    r.includes("propiet") ||
+    r.includes("dueno") ||
+    r.includes("dueño") ||
+    r === "2"
+  ) {
     return "host";
   }
   return "guest";
@@ -152,12 +192,15 @@ export default function Profile() {
         });
       } catch (e) {
         console.error("[Perfil] Falla al cargar:", e);
-        if (!cancelled) setError("No se pudo cargar el perfil. Iniciá sesión nuevamente.");
+        if (!cancelled)
+          setError("No se pudo cargar el perfil. Iniciá sesión nuevamente.");
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const role = useMemo(() => roleFromCurrent(authInfo || {}), [authInfo]);
@@ -180,9 +223,7 @@ export default function Profile() {
       return { ...f, telefonos: arr };
     });
   }
-  function addPhone() {
-    setForm((f) => ({ ...f, telefonos: [...(f.telefonos || []), ""] }));
-  }
+
   function removePhone(idx) {
     setForm((f) => {
       const arr = [...(f.telefonos || [])];
@@ -223,7 +264,10 @@ export default function Profile() {
             correo: form.correo,
           };
 
-      const updated = await tryFetchJSON("/users/me", { method: "PUT", body: payload });
+      const updated = await tryFetchJSON("/users/me", {
+        method: "PUT",
+        body: payload,
+      });
       const u = updated.data || updated;
       setData(u);
       setEdit(false);
@@ -247,20 +291,30 @@ export default function Profile() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center"
-           style={{ backgroundColor: PAGE_BG, color: TEXT_DARK }}>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center"
+        style={{ backgroundColor: PAGE_BG, color: TEXT_DARK }}
+      >
         <p>{error}</p>
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: PAGE_BG, minHeight: "100vh", paddingTop: NAV_HEIGHT + 16 }}>
+    <div
+      style={{
+        backgroundColor: PAGE_BG,
+        minHeight: "100vh",
+        paddingTop: NAV_HEIGHT + 16,
+      }}
+    >
       <Navbar active="perfil" />
 
       <header className="mx-auto max-w-7xl px-4 pt-8 pb-4 flex justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold" style={{ color: TEXT_DARK }}>Tu perfil</h1>
+          <h1 className="text-3xl font-extrabold" style={{ color: TEXT_DARK }}>
+            Tu perfil
+          </h1>
           <p className="text-base" style={{ color: TEXT_MUTED }}>
             Gestioná tus datos personales y de contacto.
           </p>
@@ -278,7 +332,11 @@ export default function Profile() {
             <button
               onClick={() => setEdit(false)}
               className="px-4 py-2 rounded-xl font-semibold border"
-              style={{ background: "white", color: TEXT_DARK, borderColor: "rgba(0,0,0,0.08)" }}
+              style={{
+                background: "white",
+                color: TEXT_DARK,
+                borderColor: "rgba(0,0,0,0.08)",
+              }}
             >
               Cancelar
             </button>
@@ -301,17 +359,29 @@ export default function Profile() {
             <div className="mb-5 flex items-center gap-4">
               <div
                 className="rounded-2xl flex items-center justify-center"
-                style={{ width: 72, height: 72, background: "#FFF4D0", color: TEXT_DARK, fontWeight: 800, fontSize: 22 }}
+                style={{
+                  width: 72,
+                  height: 72,
+                  background: "#FFF4D0",
+                  color: TEXT_DARK,
+                  fontWeight: 800,
+                  fontSize: 22,
+                }}
               >
                 {initialsOf(data?.nombre, data?.apellido)}
               </div>
               <div>
-                <h2 className="text-2xl font-extrabold" style={{ color: TEXT_DARK }}>
+                <h2
+                  className="text-2xl font-extrabold"
+                  style={{ color: TEXT_DARK }}
+                >
                   {title || "Tu nombre"}
                 </h2>
                 <p className="text-sm" style={{ color: TEXT_MUTED }}>
                   Miembro desde{" "}
-                  {new Date(data?.fecha_creacion || data?.created_at || Date.now()).toLocaleDateString()}
+                  {new Date(
+                    data?.fecha_creacion || data?.created_at || Date.now()
+                  ).toLocaleDateString()}
                 </p>
                 <p className="text-xs text-slate-500">
                   Rol: <b>{isHost ? "Anfitrión" : "Huésped"}</b>
@@ -322,21 +392,49 @@ export default function Profile() {
             {/* Campos por rol */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Siempre */}
-              <Field label="Nombre" value={form.nombre} onChange={(v) => onChange("nombre", v)} disabled={!edit} />
-              <Field label="Apellido" value={form.apellido} onChange={(v) => onChange("apellido", v)} disabled={!edit} />
-              <Field label="DNI" value={form.dni} onChange={(v) => onChange("dni", onlyDigits(v))} disabled={!edit} />
+              <Field
+                label="Nombre"
+                value={form.nombre}
+                onChange={(v) => onChange("nombre", v)}
+                disabled={!edit}
+              />
+              <Field
+                label="Apellido"
+                value={form.apellido}
+                onChange={(v) => onChange("apellido", v)}
+                disabled={!edit}
+              />
+              <Field
+                label="DNI"
+                value={form.dni}
+                onChange={(v) => onChange("dni", onlyDigits(v))}
+                disabled={!edit}
+              />
               <Field label="Correo" value={form.correo} disabled={true} />
 
               {/* Solo anfitrión */}
               {isHost && (
                 <>
                   {/* Calle y Número en la misma fila */}
-                  <Field label="Calle" value={form.calle || ""} onChange={(v) => onChange("calle", v)} disabled={!edit} />
-                  <Field label="Número" value={form.numero || ""} onChange={(v) => onChange("numero", v)} disabled={!edit} />
+                  <Field
+                    label="Calle"
+                    value={form.calle || ""}
+                    onChange={(v) => onChange("calle", v)}
+                    disabled={!edit}
+                  />
+                  <Field
+                    label="Número"
+                    value={form.numero || ""}
+                    onChange={(v) => onChange("numero", v)}
+                    disabled={!edit}
+                  />
 
                   {/* Teléfonos: ocupa 2 columnas y va debajo */}
                   <div className="sm:col-span-2">
-                    <span className="uppercase tracking-wide text-[11px] opacity-70" style={{ color: TEXT_MUTED }}>
+                    <span
+                      className="uppercase tracking-wide text-[11px] opacity-70"
+                      style={{ color: TEXT_MUTED }}
+                    >
                       Teléfonos
                     </span>
 
@@ -349,7 +447,10 @@ export default function Profile() {
                             onChange={(e) => setPhone(idx, e.target.value)}
                             disabled={!edit}
                             className="w-full rounded-xl border px-3 py-2 outline-none transition bg-white focus:ring-2"
-                            style={{ borderColor: "rgba(0,0,0,0.08)", color: TEXT_DARK }}
+                            style={{
+                              borderColor: "rgba(0,0,0,0.08)",
+                              color: TEXT_DARK,
+                            }}
                             placeholder="Ej.: 2215551234"
                           />
                           {edit && (form.telefonos?.length ?? 0) > 1 && (
@@ -364,24 +465,15 @@ export default function Profile() {
                           )}
                         </div>
                       ))}
-
-                      {edit && (
-                        <button
-                          type="button"
-                          onClick={addPhone}
-                          className="mt-1 px-3 py-1 rounded-xl border text-sm hover:shadow"
-                          title="Agregar otro teléfono"
-                        >
-                          + Agregar teléfono
-                        </button>
-                      )}
                     </div>
                   </div>
 
                   <Field
                     label="CBU"
                     value={form.cbu || ""}
-                    onChange={(v) => onChange("cbu", onlyDigits(v).slice(0, 22))}
+                    onChange={(v) =>
+                      onChange("cbu", onlyDigits(v).slice(0, 22))
+                    }
                     disabled={!edit}
                     helper={maskCBU(form.cbu)}
                   />
@@ -394,21 +486,45 @@ export default function Profile() {
 
           {/* Panel derecho (resumen) */}
           <aside className="rounded-2xl bg-white shadow-md p-5 space-y-4">
-            <h3 className="text-lg font-semibold" style={{ color: TEXT_DARK }}>Resumen</h3>
+            <h3 className="text-lg font-semibold" style={{ color: TEXT_DARK }}>
+              Resumen
+            </h3>
 
             {isHost && (
               <>
-                <KeyValue label="Localidad" value={data?.localidad?.nombre || data?.localidad || "—"} />
-                <KeyValue label="Ciudad" value={data?.localidad?.ciudad?.nombre_ciudad || data?.ciudad || "—"} />
-                <KeyValue label="País" value={data?.localidad?.ciudad?.pais?.nombre_pais || data?.pais || "—"} />
+                <KeyValue
+                  label="Localidad"
+                  value={data?.localidad?.nombre || data?.localidad || "—"}
+                />
+                <KeyValue
+                  label="Ciudad"
+                  value={
+                    data?.localidad?.ciudad?.nombre_ciudad ||
+                    data?.ciudad ||
+                    "—"
+                  }
+                />
+                <KeyValue
+                  label="País"
+                  value={
+                    data?.localidad?.ciudad?.pais?.nombre_pais ||
+                    data?.pais ||
+                    "—"
+                  }
+                />
                 <div className="h-px bg-black/10 my-2" />
               </>
             )}
 
-            <KeyValue label="Usuario #" value={String(data?.id_usuario || data?.id || "—")} />
+            <KeyValue
+              label="Usuario #"
+              value={String(data?.id_usuario || data?.id || "—")}
+            />
             <KeyValue
               label="Miembro desde"
-              value={new Date(data?.fecha_creacion || data?.created_at || Date.now()).toLocaleDateString()}
+              value={new Date(
+                data?.fecha_creacion || data?.created_at || Date.now()
+              ).toLocaleDateString()}
             />
           </aside>
         </section>
@@ -421,7 +537,10 @@ export default function Profile() {
 function Field({ label, value, onChange, disabled, helper }) {
   return (
     <label className="block text-sm">
-      <span className="uppercase tracking-wide text-[11px] opacity-70" style={{ color: TEXT_MUTED }}>
+      <span
+        className="uppercase tracking-wide text-[11px] opacity-70"
+        style={{ color: TEXT_MUTED }}
+      >
         {label}
       </span>
       <input
